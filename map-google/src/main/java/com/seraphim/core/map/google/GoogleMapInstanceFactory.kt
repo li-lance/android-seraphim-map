@@ -1,6 +1,7 @@
 package com.seraphim.core.map.google
 
 import android.content.Context
+import android.view.ViewGroup
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.maps.SupportMapFragment
@@ -46,6 +47,11 @@ class GoogleMapInstanceFactory : MapInstanceFactory {
     override fun createMapHost(context: Context): MapHost {
         val fragment = SupportMapFragment.newInstance()
         return GoogleMapHost(fragment)
+    }
+
+    override fun createMapHost(context: Context, parent: ViewGroup): MapHost {
+        // Use MapView-based host for ViewGroup attachment (MapFragment use case)
+        return GoogleMapHost.createWithMapView(context, parent)
     }
 
     override fun createMapInstance(context: Context, options: MapOptions): MapInstance {

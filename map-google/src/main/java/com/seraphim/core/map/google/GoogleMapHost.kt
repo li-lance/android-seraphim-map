@@ -1,27 +1,35 @@
 package com.seraphim.core.map.google
 
+import android.content.Context
 import android.util.Log
+import android.view.ViewGroup
 import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.seraphim.core.map.commons.MapHost
 import kotlinx.coroutines.CompletableDeferred
 
 /**
- * [MapHost] implementation wrapping a [SupportMapFragment].
- *
- * Manages the lifecycle of the Google Map and provides access
- * to the [GoogleMap] instance via [awaitNativeMap].
+ * [MapHost] implementation wrapping a [SupportMapFragment] or [MapView].
  */
-class GoogleMapHost(
-    private val mapFragment: SupportMapFragment
-) : MapHost, OnMapReadyCallback {
+class GoogleMapHost : MapHost, OnMapReadyCallback {
 
+    private var mapFragment: SupportMapFragment? = null
+    private var mapView: MapView? = null
     private var googleMap: GoogleMap? = null
     private val mapReady = CompletableDeferred<GoogleMap>()
 
-    init {
+    /** Construct with SupportMapFragment (Activity use case). */
+    constructor(mapFragment: SupportMapFragment) {
+        this.mapFragment = mapFragment
         mapFragment.getMapAsync(this)
+    }
+
+    /** Construct with MapView (Fragment/ViewGroup use case). */
+    constructor(mapView: MapView) {
+        this.mapView = mapView
+        mapView.getMapAsync(this)
     }
 
     override fun onMapReady(map: GoogleMap) {
@@ -40,31 +48,38 @@ class GoogleMapHost(
     }
 
     override fun onResume() {
-        Log.d(TAG, "onResume")
-        mapFragment.onResume()
+        mapView?.onResume(); mapFragment?.onResume()
     }
 
     override fun onPause() {
-        Log.d(TAG, "onPause")
-        mapFragment.onPause()
+        mapView?.onPause(); mapFragment?.onPause()
     }
 
     override fun onStop() {
         Log.d(TAG, "onStop")
     }
-
     override fun onDestroy() {
-        Log.d(TAG, "onDestroy")
-        mapFragment.onDestroy()
+        mapView?.onDestroy(); mapFragment?.onDestroy()
         googleMap = null
     }
 
     override fun onLowMemory() {
-        Log.d(TAG, "onLowMemory")
-        mapFragment.onLowMemory()
+        mapView?.onLowMemory(); mapFragment?.onLowMemory()
     }
 
     companion object {
         private const val TAG = "GoogleMapHost"
+
+        fun createWithMapView(context: Context, parent: ViewGroup): GoogleMapHost {
+            val mv = MapView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                onCreate(null)
+            }
+            parent.addView(mv)
+            return GoogleMapHost(mv)
+        }
     }
 }

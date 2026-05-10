@@ -1,6 +1,7 @@
 package com.seraphim.core.map.commons.registry
 
 import android.content.Context
+import android.view.ViewGroup
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
@@ -26,16 +27,19 @@ interface MapInstanceFactory {
     suspend fun checkAvailability(context: Context): MapAvailability
 
     /**
-     * Create a [MapHost] from an Android fragment or view.
-     * The provider is responsible for:
-     *  - Creating the correct native MapView/MapFragment
-     *  - Managing its lifecycle
-     *  - Exposing the native map via [MapHost.awaitNativeMap]
+     * Create a [MapHost] without a parent container.
+     * Providers that need a ViewGroup should throw [UnsupportedOperationException].
      */
     fun createMapHost(context: Context): MapHost
 
     /**
-     * Create a [MapInstance] initialized with the given host and options.
+     * Create a [MapHost] attached to the given [parent] [ViewGroup].
+     * Default implementation calls [createMapHost] without parent.
+     */
+    fun createMapHost(context: Context, parent: ViewGroup): MapHost = createMapHost(context)
+
+    /**
+     * Create a [MapInstance].
      */
     fun createMapInstance(context: Context, options: MapOptions): MapInstance
 

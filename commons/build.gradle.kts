@@ -7,6 +7,7 @@ android {
 }
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation("androidx.fragment:fragment-ktx:1.8.6")
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 }
