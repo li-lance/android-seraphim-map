@@ -5,38 +5,49 @@ import com.seraphim.core.map.commons.location.GeocodingAddress
 import com.seraphim.core.map.commons.location.GeocodingRequest
 import com.seraphim.core.map.commons.location.GeocodingResult
 import com.seraphim.core.map.commons.location.LocationDecoder
-import com.skt.Tmap.TMapData
-import com.skt.Tmap.TMapPoint
+import com.skt.tmap.TMapData
+import com.skt.tmap.address.TMapAddressInfo
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
-class TmapLocationDecoder(context: Context) : LocationDecoder {
+class TmapLocationDecoder(ctx: Context) : LocationDecoder {
+    private val data = TMapData()
 
-    private val tmapData: TMapData = TMapData()
-
-    override suspend fun reverseGeocode(request: GeocodingRequest): GeocodingResult {
-        return suspendCancellableCoroutine { continuation ->
-            val point = TMapPoint(request.location.latitude, request.location.longitude)
-            tmapData.convertGpsToAddress(point.latitude, point.longitude) { address ->
-                val result = GeocodingAddress(
-                    latitude = request.location.latitude,
-                    longitude = request.location.longitude,
-                    formattedAddress = address ?: "Unknown"
-                )
-                continuation.resume(
-                    GeocodingResult(
-                        formattedAddress = result.formattedAddress,
-                        results = listOf(result)
-                    )
-                )
-            }
+    override suspend fun reverseGeocode(req: GeocodingRequest): GeocodingResult {
+        return suspendCancellableCoroutine { cont ->
+            data.reverseGeocoding(
+                req.location.latitude, req.location.longitude, "A10",
+                object : TMapData.OnReverseGeocodingListener {
+                    override fun onReverseGeocoding(info: TMapAddressInfo?) {
+                        val addr = if (info != null) {
+                            listOfNotNull(
+                                info.strCity_do, info.strGu_gun, info.strLegalDong,
+                                info.strRi, info.strBunji
+                            ).joinToString(" ")
+                        } else ""
+                        val r =
+                            GeocodingAddress(req.location.latitude, req.location.longitude, addr)
+                        cont.resume(GeocodingResult(r.formattedAddress, listOf(r)))
+                    }
+                })
         }
     }
 
     override suspend fun forwardGeocode(
-        query: String, language: String, maxResults: Int
+        query: String,
+        language: String,
+        maxResults: Int
     ): List<GeocodingAddress> {
-        // TODO: Tmap forward geocoding via TMapData.findPathData or address search API
-        return emptyList()
+        return suspendCancellableCoroutine { cont ->
+            data.findAllPOI(query, object : TMapData.OnFindAllPOIListener {
+                override fun onFindAllPOI(pois: ArrayList<com.skt.tmap.poi.TMapPOIItem>?) {
+                    val results = pois?.map {
+                        val pt = it.getPOIPoint()
+                        GeocodingAddress(pt.latitude, pt.longitude, it.name ?: "")
+                    } ?: emptyList()
+                    cont.resume(results)
+                }
+            })
+        }
     }
 }

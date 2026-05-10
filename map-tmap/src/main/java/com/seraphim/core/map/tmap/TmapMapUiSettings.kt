@@ -2,58 +2,54 @@ package com.seraphim.core.map.tmap
 
 import android.util.Log
 import com.seraphim.core.map.commons.MapUiSettings
-import com.skt.Tmap.TMapView
+import com.skt.tmap.TMapView
 
-class TmapMapUiSettings(
-    private val mapViewProvider: () -> TMapView?
-) : MapUiSettings {
-
-    private val mapView: TMapView
-        get() = mapViewProvider() ?: throw IllegalStateException("TMapView not available")
+class TmapMapUiSettings(private val mv: () -> TMapView?) : MapUiSettings {
+    private val m: TMapView get() = mv() ?: throw IllegalStateException()
 
     override var scrollGesturesEnabled: Boolean = true
-        set(value) {
-            Log.d(TAG, "scrollGesturesEnabled: not directly supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "scroll: not directly supported")
         }
     override var zoomGesturesEnabled: Boolean = true
-        set(value) {
-            Log.d(TAG, "zoomGesturesEnabled: not directly supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "zoom: not directly supported")
         }
     override var rotateGesturesEnabled: Boolean = true
-        set(value) {
-            Log.d(TAG, "rotateGesturesEnabled: not directly supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "rotate: not directly supported")
         }
     override var tiltGesturesEnabled: Boolean = true
-        set(value) {
-            Log.d(TAG, "tiltGesturesEnabled: not supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "tilt: not supported")
         }
     override var compassEnabled: Boolean = false
-        set(value) {
-            Log.d(TAG, "compassEnabled: not supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "compass: not supported")
         }
     override var myLocationButtonEnabled: Boolean = false
-        set(value) {
-            Log.d(TAG, "myLocationButtonEnabled: not supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "mylocation: not supported")
         }
     override var zoomControlsEnabled: Boolean = false
-        set(value) {
-            Log.d(TAG, "zoomControlsEnabled: not supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "zoomControls: not supported")
         }
     override var mapToolbarEnabled: Boolean = false
-        set(value) {
-            Log.d(TAG, "mapToolbarEnabled: not supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "mapToolbar: not supported")
         }
     override var trafficEnabled: Boolean = false
-        set(value) {
-            Log.d(TAG, "trafficEnabled: use TMapTapi for traffic")
+        set(v) {
+            Log.d(TAG, "traffic: use TMapTrafficLine")
         }
     override var indoorEnabled: Boolean = false
-        set(value) {
-            Log.d(TAG, "indoorEnabled: not supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "indoor: not supported")
         }
     override var buildingsEnabled: Boolean = true
-        set(value) {
-            Log.d(TAG, "buildingsEnabled: not directly supported by Tmap SDK")
+        set(v) {
+            Log.d(TAG, "buildings: not supported")
         }
 
     companion object {

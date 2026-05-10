@@ -1,62 +1,36 @@
 package com.seraphim.core.map.tmap
 
 import android.content.Context
-import android.util.Log
 import android.view.ViewGroup
 import com.seraphim.core.map.commons.MapHost
-import com.skt.Tmap.TMapView
+import com.skt.tmap.TMapView
 import kotlinx.coroutines.CompletableDeferred
 
-/**
- * [MapHost] implementation wrapping a Tmap [TMapView].
- */
-class TmapMapHost(
-    private val mapView: TMapView
-) : MapHost {
-
-    private val mapReady = CompletableDeferred<TMapView>()
+class TmapMapHost(private val mapView: TMapView) : MapHost {
+    private val ready = CompletableDeferred<TMapView>()
 
     init {
-        mapReady.complete(mapView)
+        mapView.setOnMapReadyListener { ready.complete(mapView) }
     }
 
-    override suspend fun awaitNativeMap(): Any = mapReady.await()
+    override suspend fun awaitNativeMap(): Any = ready.await()
 
     override fun updatePadding(left: Int, top: Int, right: Int, bottom: Int) {
-        Log.d(TAG, "updatePadding: $left, $top, $right, $bottom")
+        mapView.setPadding(left, top, right, bottom)
     }
 
-    override fun onStart() {
-        Log.d(TAG, "onStart")
-    }
-
-    override fun onResume() {
-        Log.d(TAG, "onResume")
-    }
-
-    override fun onPause() {
-        Log.d(TAG, "onPause")
-    }
-
-    override fun onStop() {
-        Log.d(TAG, "onStop")
-    }
-
-    override fun onDestroy() {
-        Log.d(TAG, "onDestroy")
-        // TMapView cleanup handled by caller
-    }
-
-    override fun onLowMemory() {
-        Log.d(TAG, "onLowMemory")
-    }
+    override fun onStart() {}
+    override fun onResume() {}
+    override fun onPause() {}
+    override fun onStop() {}
+    override fun onDestroy() {}
+    override fun onLowMemory() {}
 
     companion object {
-        private const val TAG = "TmapMapHost"
-        fun create(context: Context, parent: ViewGroup): TmapMapHost {
-            val mapView = TMapView(context)
-            parent.addView(mapView)
-            return TmapMapHost(mapView)
+        fun create(context: Context, parent: ViewGroup, apiKey: String = ""): TmapMapHost {
+            val mv = TMapView(context).apply { setSKTMapApiKey(apiKey) }
+            parent.addView(mv)
+            return TmapMapHost(mv)
         }
     }
 }

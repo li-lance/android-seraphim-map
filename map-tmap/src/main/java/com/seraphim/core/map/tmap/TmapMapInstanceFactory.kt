@@ -11,38 +11,33 @@ import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
 
 class TmapMapInstanceFactory : MapInstanceFactory {
+    override val providerId = "tmap"
 
-    override val providerId: String = "tmap"
-
-    override suspend fun checkAvailability(context: Context): MapAvailability {
+    override suspend fun checkAvailability(ctx: Context): MapAvailability {
         return try {
-            Class.forName("com.skt.Tmap.TMapView")
+            Class.forName("com.skt.tmap.TMapView")
             MapAvailability.Available
         } catch (e: ClassNotFoundException) {
-            MapAvailability.Unavailable(
-                reason = "Tmap SDK classes not found. Download AAR from https://tmapapi.tmapmobility.com",
-                resolution = "Place the AAR in app/libs/ and add implementation(fileTree(" libs ") { include(" * . aar ") })"
-            )
+            MapAvailability.Unavailable("Tmap SDK not found", "Add tmap-sdk AAR to libs/")
         }
     }
 
-    override fun createMapHost(context: Context): MapHost {
-        throw UnsupportedOperationException("Tmap MapHost requires a ViewGroup parent.")
+    override fun createMapHost(ctx: Context): MapHost {
+        throw UnsupportedOperationException("Tmap requires ViewGroup. Use createMapHost(ctx, parent, apiKey).")
     }
 
-    fun createMapHost(context: Context, parent: ViewGroup): MapHost {
-        return TmapMapHost.create(context, parent)
-    }
+    fun createMapHost(ctx: Context, parent: ViewGroup, apiKey: String = ""): MapHost =
+        TmapMapHost.create(ctx, parent, apiKey)
 
-    override fun createMapInstance(context: Context, options: MapOptions): MapInstance {
-        return TmapMapInstance()
-    }
+    override fun createMapInstance(ctx: Context, options: MapOptions): MapInstance =
+        TmapMapInstance()
 
-    override fun createUserLocationProvider(context: Context): UserLocationProvider {
-        return TmapUserLocationProvider(context)
-    }
+    fun createClusterableMapInstance(ctx: Context, options: MapOptions): TmapClusterableMap =
+        TmapClusterableMap()
 
-    override fun createLocationDecoder(context: Context): LocationDecoder {
-        return TmapLocationDecoder(context)
-    }
+    override fun createUserLocationProvider(ctx: Context): UserLocationProvider =
+        TmapUserLocationProvider(ctx)
+
+    override fun createLocationDecoder(ctx: Context): LocationDecoder =
+        TmapLocationDecoder(ctx)
 }

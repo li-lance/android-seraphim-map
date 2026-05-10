@@ -5,37 +5,30 @@ import com.seraphim.core.map.commons.MapCamera
 import com.seraphim.core.map.commons.model.CameraPosition
 import com.seraphim.core.map.commons.model.LatLng
 import com.seraphim.core.map.commons.model.LatLngBounds
-import com.skt.Tmap.TMapView
+import com.skt.tmap.TMapView
 
-class TmapMapCamera(
-    private val mapViewProvider: () -> TMapView?
-) : MapCamera {
-
-    private val mapView: TMapView
-        get() = mapViewProvider() ?: throw IllegalStateException("TMapView not available")
+class TmapMapCamera(private val mv: () -> TMapView?) : MapCamera {
+    private val m: TMapView get() = mv() ?: throw IllegalStateException()
 
     override val current: CameraPosition
         get() {
-            val center = mapView.getCenterPoint()
-            return CameraPosition(
-                target = LatLng(center.latitude, center.longitude),
-                zoom = mapView.zoomLevel.toFloat()
-            )
+            val c = m.getCenterPoint()
+            return CameraPosition(LatLng(c.latitude, c.longitude), m.zoomLevel.toFloat())
         }
 
     override val visibleRegion: LatLngBounds
         get() {
-            // Tmap doesn't expose visible region directly
-            val c = mapView.getCenterPoint()
+            val c = m.getCenterPoint()
+            val d = 0.01
             return LatLngBounds(
-                southwest = LatLng(c.latitude - 0.01, c.longitude - 0.01),
-                northeast = LatLng(c.latitude + 0.01, c.longitude + 0.01)
+                LatLng(c.latitude - d, c.longitude - d),
+                LatLng(c.latitude + d, c.longitude + d)
             )
         }
 
     override fun moveTo(target: LatLng, zoom: Float?) {
-        mapView.setCenterPoint(target.longitude, target.latitude)
-        if (zoom != null) mapView.zoomLevel = zoom.toInt()
+        m.setCenterPoint(target.longitude, target.latitude)
+        if (zoom != null) m.zoomLevel = zoom.toInt()
     }
 
     override fun animateTo(
@@ -45,8 +38,8 @@ class TmapMapCamera(
         bearing: Float?,
         durationMs: Int
     ) {
-        mapView.setCenterPoint(target.longitude, target.latitude)
-        if (zoom != null) mapView.zoomLevel = zoom.toInt()
+        m.setCenterPoint(target.longitude, target.latitude)
+        if (zoom != null) m.zoomLevel = zoom.toInt()
     }
 
     override fun animateToBounds(
@@ -55,31 +48,24 @@ class TmapMapCamera(
         durationMs: Int,
         onFinish: ((Boolean) -> Unit)?
     ) {
-        val cLat = (bounds.southwest.latitude + bounds.northeast.latitude) / 2.0
-        val cLng = (bounds.southwest.longitude + bounds.northeast.longitude) / 2.0
-        mapView.setCenterPoint(cLng, cLat)
+        val cl = (bounds.southwest.latitude + bounds.northeast.latitude) / 2.0
+        val cn = (bounds.southwest.longitude + bounds.northeast.longitude) / 2.0
+        m.setCenterPoint(cn, cl)
         onFinish?.invoke(false)
     }
 
     override fun zoomIn() {
-        mapView.MapZoomIn()
+        m.mapZoomIn()
     }
 
     override fun zoomOut() {
-        mapView.MapZoomOut()
+        m.mapZoomOut()
     }
 
     override fun zoomBy(amount: Float) {
-        mapView.zoomLevel = (mapView.zoomLevel + amount.toInt()).coerceIn(1, 19)
+        m.zoomLevel = (m.zoomLevel + amount.toInt()).coerceIn(1, 19)
     }
 
-    override fun screenToLatLng(x: Int, y: Int): LatLng {
-        // TODO: Tmap screen-to-geo conversion
-        return LatLng(0.0, 0.0)
-    }
-
-    override fun latLngToScreen(location: LatLng): Point {
-        // TODO: Tmap geo-to-screen conversion
-        return Point(0, 0)
-    }
+    override fun screenToLatLng(x: Int, y: Int): LatLng = LatLng(0.0, 0.0)
+    override fun latLngToScreen(location: LatLng): Point = Point(0, 0)
 }

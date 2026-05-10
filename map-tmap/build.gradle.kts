@@ -7,10 +7,8 @@ android {
 }
 dependencies {
     api(project(":core:map:commons"))
-    // Tmap SDK: download AAR from https://tmapapi.tmapmobility.com
-    // Place the AAR in libs/ and add:
-    //   implementation(fileTree("libs") { include("*.aar") })
-    compileOnly(libs.tmap.sdk)
+    // Tmap SDK AARs (v3.5 + VSM v2.0.0)
+    implementation(fileTree("libs") { include("*.aar") })
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 }
