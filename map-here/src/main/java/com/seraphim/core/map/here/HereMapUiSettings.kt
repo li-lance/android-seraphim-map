@@ -7,47 +7,58 @@ import com.seraphim.core.map.commons.MapUiSettings
 class HereMapUiSettings(private val scene: () -> MapScene?) : MapUiSettings {
     private val s: MapScene get() = scene() ?: throw IllegalStateException()
 
-    override var scrollGesturesEnabled: Boolean = true;
+    override var scrollGesturesEnabled: Boolean
+        get() = true
         set(v) {
             Log.d(TAG, "scroll: $v")
         }
-    override var zoomGesturesEnabled: Boolean = true;
+    override var zoomGesturesEnabled: Boolean
+        get() = true
         set(v) {
             Log.d(TAG, "zoom: $v")
         }
-    override var rotateGesturesEnabled: Boolean = true;
+    override var rotateGesturesEnabled: Boolean
+        get() = true
         set(v) {
             Log.d(TAG, "rotate: $v")
         }
-    override var tiltGesturesEnabled: Boolean = true;
+    override var tiltGesturesEnabled: Boolean
+        get() = true
         set(v) {
             Log.d(TAG, "tilt: $v")
         }
-    override var compassEnabled: Boolean = false;
+    override var compassEnabled: Boolean
+        get() = false
         set(v) {
             Log.d(TAG, "compass: not supported")
         }
-    override var myLocationButtonEnabled: Boolean = false;
+    override var myLocationButtonEnabled: Boolean
+        get() = false
         set(v) {
             Log.d(TAG, "locationBtn: not supported")
         }
-    override var zoomControlsEnabled: Boolean = false;
+    override var zoomControlsEnabled: Boolean
+        get() = false
         set(v) {
             Log.d(TAG, "zoomCtrls: not supported")
         }
-    override var mapToolbarEnabled: Boolean = false;
+    override var mapToolbarEnabled: Boolean
+        get() = false
         set(v) {
             Log.d(TAG, "toolbar: not supported")
         }
-    override var trafficEnabled: Boolean = false;
+    override var trafficEnabled: Boolean
+        get() = false
         set(v) {
             Log.d(TAG, "traffic: $v")
         }
-    override var indoorEnabled: Boolean = false;
+    override var indoorEnabled: Boolean
+        get() = false
         set(v) {
             Log.d(TAG, "indoor: not supported")
         }
-    override var buildingsEnabled: Boolean = true;
+    override var buildingsEnabled: Boolean
+        get() = true
         set(v) {
             Log.d(TAG, "buildings: $v")
         }

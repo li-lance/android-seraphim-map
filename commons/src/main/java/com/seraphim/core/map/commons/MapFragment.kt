@@ -38,9 +38,8 @@ open class MapFragment : Fragment() {
 
     /** Suspend until the map is ready. */
     suspend fun getMap(): MapInstance {
-        // Poll until map is set (runs on Main dispatcher)
         var attempts = 0
-        while (_map == null && attempts < 50) {
+        while (_map == null && attempts < 100) {
             kotlinx.coroutines.delay(100)
             attempts++
         }

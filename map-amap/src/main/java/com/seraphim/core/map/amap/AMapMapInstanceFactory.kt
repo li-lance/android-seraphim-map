@@ -13,7 +13,7 @@ import com.seraphim.core.map.commons.registry.MapInstanceFactory
 class AMapMapInstanceFactory : MapInstanceFactory {
     override val providerId = "amap"
 
-    override suspend fun checkAvailability(ctx: Context): MapAvailability {
+    override suspend fun checkAvailability(context: Context): MapAvailability {
         return try {
             Class.forName("com.amap.api.maps.MapView"); MapAvailability.Available
         } catch (e: ClassNotFoundException) {
@@ -21,18 +21,20 @@ class AMapMapInstanceFactory : MapInstanceFactory {
         }
     }
 
-    override fun createMapHost(ctx: Context): MapHost =
+    override fun createMapHost(context: Context): MapHost =
         throw UnsupportedOperationException("AMap requires ViewGroup")
 
-    override fun createMapHost(ctx: Context, parent: ViewGroup): MapHost =
-        AMapMapHost.create(ctx, parent)
+    override fun createMapHost(context: Context, parent: ViewGroup): MapHost =
+        AMapMapHost.create(context, parent)
 
-    override fun createMapInstance(ctx: Context, opts: MapOptions): MapInstance = AMapMapInstance()
+    override fun createMapInstance(context: Context, options: MapOptions): MapInstance =
+        AMapMapInstance()
     fun createClusterableMapInstance(ctx: Context, opts: MapOptions): AMapClusterableMap =
         AMapClusterableMap()
 
-    override fun createUserLocationProvider(ctx: Context): UserLocationProvider =
-        AMapUserLocationProvider(ctx)
+    override fun createUserLocationProvider(context: Context): UserLocationProvider =
+        AMapUserLocationProvider(context)
 
-    override fun createLocationDecoder(ctx: Context): LocationDecoder = AMapLocationDecoder(ctx)
+    override fun createLocationDecoder(context: Context): LocationDecoder =
+        AMapLocationDecoder(context)
 }

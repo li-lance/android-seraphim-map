@@ -43,8 +43,8 @@ open class HereMapInstance : MapInstance {
     private val polylines = mutableListOf<MapPolyline>()
     private val polygons = mutableListOf<MapPolygon>()
 
-    override val camera = HereMapCamera(mv)
-    override val uiSettings: MapUiSettings = HereMapUiSettings { scene }
+    override val camera by lazy { HereMapCamera(mv) }
+    override val uiSettings: MapUiSettings by lazy { HereMapUiSettings { scene } }
 
     override suspend fun init(host: MapHost, opts: MapOptions) {
         val native = host.awaitNativeMap() as? MapView
@@ -164,7 +164,7 @@ open class HereMapInstance : MapInstance {
         polygons.forEach { ms.removeMapPolygon(it) }; polygons.clear()
     }
 
-    override var mapType: MapType = MapType.NORMAL;
+    override var mapType: MapType = MapType.NORMAL
         set(v) {
             applyMapType(v)
         }

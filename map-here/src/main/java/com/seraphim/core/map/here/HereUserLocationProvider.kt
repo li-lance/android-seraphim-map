@@ -24,10 +24,10 @@ class HereUserLocationProvider(ctx: Context) : UserLocationProvider {
     override val lastKnownLocation: UserPosition? = null
 
     @androidx.annotation.RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    override fun requestLocationUpdates(cb: LocationCallback, intervalMs: Long) {
+    override fun requestLocationUpdates(callback: LocationCallback, intervalMs: Long) {
         try {
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, intervalMs, 0f) { loc ->
-                cb.onLocationResult(
+                callback.onLocationResult(
                     LocationResult.Success(
                         UserPosition(
                             LatLng(loc.latitude, loc.longitude), loc.bearing, loc.accuracy, loc.time
@@ -36,7 +36,7 @@ class HereUserLocationProvider(ctx: Context) : UserLocationProvider {
                 )
             }
         } catch (e: SecurityException) {
-            cb.onLocationResult(LocationResult.PermissionDenied)
+            callback.onLocationResult(LocationResult.PermissionDenied)
         }
     }
 

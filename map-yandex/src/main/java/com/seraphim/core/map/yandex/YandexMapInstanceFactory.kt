@@ -43,7 +43,7 @@ class YandexMapInstanceFactory : MapInstanceFactory {
         )
     }
 
-    fun createMapHost(context: Context, parent: ViewGroup): MapHost {
+    override fun createMapHost(context: Context, parent: ViewGroup): MapHost {
         return YandexMapHost.create(context, parent)
     }
 

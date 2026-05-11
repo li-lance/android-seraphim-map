@@ -1,6 +1,7 @@
 package com.seraphim.core.map.here
 
 import android.content.Context
+import android.os.Bundle
 import android.view.ViewGroup
 import com.here.sdk.core.engine.AuthenticationMode
 import com.here.sdk.core.engine.SDKNativeEngine
@@ -9,29 +10,30 @@ import com.here.sdk.core.errors.InstantiationErrorException
 import com.here.sdk.mapview.MapScheme
 import com.here.sdk.mapview.MapView
 import com.seraphim.core.map.commons.MapHost
-import com.seraphim.core.map.here.HereMapHost.Companion.initSDK
 import kotlinx.coroutines.CompletableDeferred
 
-/**
- * [MapHost] wrapping a HERE [MapView].
- * 
- * SDK initialization is handled once via [initSDK] — call before creating any MapView.
- */
 class HereMapHost(private val mapView: MapView) : MapHost {
     private var scene: com.here.sdk.mapview.MapScene? = null
-    private val ready = CompletableDeferred<com.here.sdk.mapview.MapScene>()
+    private val ready = CompletableDeferred<MapView>()
 
     init {
         mapView.onCreate(null)
-        mapView.setOnReadyListener {
-            scene = mapView.mapScene
-            ready.complete(mapView.mapScene)
-            mapView.mapScene.loadScene(MapScheme.NORMAL_DAY, null)
+        // Use loadScene callback instead of onReadyListener (per HERE 4.25.5 pattern)
+        loadMapScene()
+    }
+
+    private fun loadMapScene() {
+        mapView.mapScene.loadScene(MapScheme.NORMAL_DAY) { error ->
+            if (error == null) {
+                scene = mapView.mapScene
+                ready.complete(mapView)
+            }
         }
     }
 
     override suspend fun awaitNativeMap(): Any = ready.await()
     override fun updatePadding(l: Int, t: Int, r: Int, b: Int) {}
+
     override fun onStart() {}
     override fun onResume() {
         mapView.onResume()
@@ -40,18 +42,19 @@ class HereMapHost(private val mapView: MapView) : MapHost {
     override fun onPause() {
         mapView.onPause()
     }
-
     override fun onStop() {}
     override fun onDestroy() {
         mapView.onDestroy(); scene = null
     }
-
     override fun onLowMemory() {}
+
+    fun onSaveInstanceState(outState: Bundle) {
+        mapView.onSaveInstanceState(outState)
+    }
 
     companion object {
         private var sdkInitialized = false
 
-        /** Initialize HERE SDK once per process. Call from Application.onCreate. */
         @Synchronized
         fun initSDK(context: Context, accessKeyId: String, accessKeySecret: String) {
             if (sdkInitialized) return
