@@ -61,4 +61,12 @@ class MapProviderRegistry {
     fun dispose() {
         _factories.clear()
     }
+
+    companion object {
+        /** Convenience singleton for global access. Set up in Application.onCreate. */
+        @JvmStatic
+        val instance: MapProviderRegistry by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+            MapProviderRegistry()
+        }
+    }
 }
