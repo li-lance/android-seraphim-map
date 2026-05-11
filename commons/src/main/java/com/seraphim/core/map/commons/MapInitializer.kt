@@ -32,20 +32,43 @@ object MapInitializer {
 
     private fun initAMap(app: Application) {
         try {
-            val c = Class.forName("com.amap.api.maps.MapsInitializer")
-            c.getMethod(
+            // Map SDK privacy compliance
+            val mc = Class.forName("com.amap.api.maps.MapsInitializer")
+            mc.getMethod(
                 "updatePrivacyShow",
                 android.content.Context::class.java,
                 Boolean::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType
             )
                 .invoke(null, app, true, true)
-            c.getMethod(
+            mc.getMethod(
                 "updatePrivacyAgree",
                 android.content.Context::class.java,
                 Boolean::class.javaPrimitiveType
             )
                 .invoke(null, app, true)
+
+            // Location SDK privacy compliance (separate from Map SDK)
+            try {
+                val lc = Class.forName("com.amap.api.location.AMapLocationClient")
+                lc.getMethod(
+                    "updatePrivacyShow",
+                    android.content.Context::class.java,
+                    Boolean::class.javaPrimitiveType,
+                    Boolean::class.javaPrimitiveType
+                )
+                    .invoke(null, app, true, true)
+                lc.getMethod(
+                    "updatePrivacyAgree",
+                    android.content.Context::class.java,
+                    Boolean::class.javaPrimitiveType
+                )
+                    .invoke(null, app, true)
+            } catch (e: Exception) {
+                Log.w(TAG, "AMap Location SDK not found, skip location privacy init")
+            }
+
+            Log.d(TAG, "AMap SDK initialized")
         } catch (e: Exception) {
             Log.w(TAG, "AMap SDK not found")
         }
