@@ -45,6 +45,19 @@ class AMapMapCamera(private val am: () -> AMap?) : MapCamera {
         )
     }
 
+    override fun moveTo(position: ModelCameraPosition) {
+        m.moveCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.builder()
+                    .target(AMapLatLng(position.target.latitude, position.target.longitude))
+                    .zoom(position.zoom)
+                    .tilt(position.tilt)
+                    .bearing(position.bearing)
+                    .build()
+            )
+        )
+    }
+
     override fun animateTo(
         target: LatLng,
         zoom: Float?,
@@ -57,6 +70,16 @@ class AMapMapCamera(private val am: () -> AMap?) : MapCamera {
             .zoom(zoom ?: m.cameraPosition.zoom)
             .tilt(tilt ?: m.cameraPosition.tilt)
             .bearing(bearing ?: m.cameraPosition.bearing)
+            .build()
+        m.animateCamera(CameraUpdateFactory.newCameraPosition(b), durationMs.toLong(), null)
+    }
+
+    override fun animateTo(position: ModelCameraPosition, durationMs: Int) {
+        val b = CameraPosition.builder()
+            .target(AMapLatLng(position.target.latitude, position.target.longitude))
+            .zoom(position.zoom)
+            .tilt(position.tilt)
+            .bearing(position.bearing)
             .build()
         m.animateCamera(CameraUpdateFactory.newCameraPosition(b), durationMs.toLong(), null)
     }
@@ -91,6 +114,8 @@ class AMapMapCamera(private val am: () -> AMap?) : MapCamera {
     override fun zoomBy(amount: Float) {
         m.animateCamera(CameraUpdateFactory.zoomBy(amount))
     }
+
+    // ── Coordinate Conversion ──
 
     override fun screenToLatLng(x: Int, y: Int): LatLng {
         val p = m.projection.fromScreenLocation(Point(x, y))

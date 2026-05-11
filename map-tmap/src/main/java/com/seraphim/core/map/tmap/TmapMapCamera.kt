@@ -7,6 +7,7 @@ import com.seraphim.core.map.commons.model.LatLng
 import com.seraphim.core.map.commons.model.LatLngBounds
 import com.skt.tmap.TMapView
 
+
 class TmapMapCamera(private val mv: () -> TMapView?) : MapCamera {
     private val m: TMapView get() = mv() ?: throw IllegalStateException()
 
@@ -31,6 +32,11 @@ class TmapMapCamera(private val mv: () -> TMapView?) : MapCamera {
         if (zoom != null) m.zoomLevel = zoom.toInt()
     }
 
+    override fun moveTo(position: CameraPosition) {
+        m.setCenterPoint(position.target.longitude, position.target.latitude)
+        m.zoomLevel = position.zoom.toInt()
+    }
+
     override fun animateTo(
         target: LatLng,
         zoom: Float?,
@@ -40,6 +46,11 @@ class TmapMapCamera(private val mv: () -> TMapView?) : MapCamera {
     ) {
         m.setCenterPoint(target.longitude, target.latitude)
         if (zoom != null) m.zoomLevel = zoom.toInt()
+    }
+
+    override fun animateTo(position: CameraPosition, durationMs: Int) {
+        m.setCenterPoint(position.target.longitude, position.target.latitude)
+        m.zoomLevel = position.zoom.toInt()
     }
 
     override fun animateToBounds(
@@ -65,6 +76,8 @@ class TmapMapCamera(private val mv: () -> TMapView?) : MapCamera {
     override fun zoomBy(amount: Float) {
         m.zoomLevel = (m.zoomLevel + amount.toInt()).coerceIn(1, 19)
     }
+
+    // ── Coordinate Conversion ──
 
     override fun screenToLatLng(x: Int, y: Int): LatLng = LatLng(0.0, 0.0)
     override fun latLngToScreen(location: LatLng): Point = Point(0, 0)

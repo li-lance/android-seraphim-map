@@ -5,13 +5,13 @@ import com.seraphim.core.map.commons.model.ClusterItem
 /**
  * Core map instance interface.
  *
- * Combines [MapViewport], [MapAnnotations], [MapEvents], and [MapLocation]
+ * Combines [MapAnnotations], [MapEvents], and [MapLocation]
  * into a single facade. Provider implementations extend this interface.
  *
  * Lifecycle: Call [init] to start, then use the map. Call the [MapHost]'s
  * lifecycle methods as appropriate for your Android lifecycle.
  */
-interface MapInstance : MapViewport, MapAnnotations, MapEvents, MapLocation {
+interface MapInstance : MapAnnotations, MapEvents, MapLocation {
 
     /** The camera controller (fine-grained animation). */
     val camera: MapCamera

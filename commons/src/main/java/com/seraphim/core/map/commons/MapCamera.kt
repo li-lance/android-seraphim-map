@@ -9,6 +9,7 @@ import com.seraphim.core.map.commons.model.LatLngBounds
  * Controls the map camera (position, zoom, tilt, bearing).
  */
 interface MapCamera {
+
     /** The current camera position. */
     val current: CameraPosition
 
@@ -21,6 +22,11 @@ interface MapCamera {
      * @param zoom If non-null, set the zoom level.
      */
     fun moveTo(target: LatLng, zoom: Float? = null)
+
+    /**
+     * Move the camera instantly to a specific [CameraPosition].
+     */
+    fun moveTo(position: CameraPosition)
 
     /**
      * Animate the camera to a new position.
@@ -37,6 +43,11 @@ interface MapCamera {
         bearing: Float? = null,
         durationMs: Int = 300
     )
+
+    /**
+     * Animate the camera to a specific [CameraPosition].
+     */
+    fun animateTo(position: CameraPosition, durationMs: Int = 300)
 
     /**
      * Animate the camera to fit the given bounds.

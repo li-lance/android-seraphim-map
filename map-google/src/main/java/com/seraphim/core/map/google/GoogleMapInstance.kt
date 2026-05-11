@@ -26,12 +26,9 @@ import com.seraphim.core.map.commons.model.IconProvider
 import com.seraphim.core.map.commons.model.MapType
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import com.seraphim.core.map.commons.model.CameraPosition as ModelCameraPosition
 import com.seraphim.core.map.commons.model.Circle as ModelCircle
 import com.seraphim.core.map.commons.model.CircleOptions as ModelCircleOptions
 import com.seraphim.core.map.commons.model.LatLng as ModelLatLng
-import com.seraphim.core.map.commons.model.LatLngBounds as ModelLatLngBounds
-import com.seraphim.core.map.commons.model.MapPadding as ModelMapPadding
 import com.seraphim.core.map.commons.model.Marker as ModelMarker
 import com.seraphim.core.map.commons.model.MarkerOptions as ModelMarkerOptions
 import com.seraphim.core.map.commons.model.Polygon as ModelPolygon
@@ -151,6 +148,8 @@ open class GoogleMapInstance : MapInstance {
                     "MapStyle.FromResource: styles must be set via JSON string. Use CustomJson for raw resources."
                 )
             }
+
+            is MapStyle.Type -> applyMapType(style.mapType)
 
             MapStyle.Default -> { /* do nothing */
             }
@@ -286,51 +285,6 @@ open class GoogleMapInstance : MapInstance {
         polygons.clear()
         circles.forEach { it.remove() }
         circles.clear()
-    }
-
-    // ── MapViewport (delegated to camera) ──
-
-    override var mapType: MapType
-        get() = googleMap?.let { m ->
-            when (m.mapType) {
-                GoogleMap.MAP_TYPE_NONE -> MapType.NONE
-                GoogleMap.MAP_TYPE_NORMAL -> MapType.NORMAL
-                GoogleMap.MAP_TYPE_SATELLITE -> MapType.SATELLITE
-                GoogleMap.MAP_TYPE_HYBRID -> MapType.HYBRID
-                GoogleMap.MAP_TYPE_TERRAIN -> MapType.TERRAIN
-                else -> MapType.NORMAL
-            }
-        } ?: MapType.NORMAL
-        set(value) {
-            googleMap?.let { applyMapType(value) }
-        }
-
-    override fun moveCamera(position: ModelCameraPosition, animate: Boolean) {
-        if (animate) {
-            camera.animateTo(
-                target = position.target,
-                zoom = position.zoom,
-                tilt = position.tilt,
-                bearing = position.bearing
-            )
-        } else {
-            camera.moveTo(position.target, position.zoom)
-        }
-    }
-
-    override fun animateCameraToBounds(bounds: ModelLatLngBounds, padding: Int) {
-        camera.animateToBounds(bounds, padding)
-    }
-
-    override val cameraPosition: ModelCameraPosition
-        get() = camera.current
-
-    override fun setPadding(padding: ModelMapPadding) {
-        map.setPadding(padding.left, padding.top, padding.right, padding.bottom)
-    }
-
-    override fun resetPadding() {
-        map.setPadding(0, 0, 0, 0)
     }
 
     // ── MapAnnotations ──

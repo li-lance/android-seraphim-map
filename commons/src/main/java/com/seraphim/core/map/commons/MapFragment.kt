@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.fragment.app.Fragment
 import com.seraphim.core.map.commons.registry.MapAvailability
+import com.seraphim.core.map.commons.registry.MapInstanceFactory
 import com.seraphim.core.map.commons.registry.MapProviderRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,12 +23,17 @@ import kotlinx.coroutines.launch
  * Provider-agnostic map Fragment. Manages [MapHost] lifecycle and supports
  * provider switching at runtime.
  *
- * Usage:
+ * Usage (default — uses [MapProviderRegistry.instance]):
  * ```
- * val fragment = MapFragment().apply { initialize(registry, "google") }
+ * val fragment = MapFragment.create("google")
  * fragment.mapFlow.collect { mapInstance ->
  *     // mapInstance is non-null when ready
  * }
+ * ```
+ *
+ * Usage (custom registry):
+ * ```
+ * val fragment = MapFragment().apply { initialize(registry, "google") }
  * ```
  *
  * Switch provider: `fragment.switchProvider("yandex")`
@@ -39,6 +45,7 @@ open class MapFragment : Fragment() {
     private var mapHost: MapHost? = null
     private var _registry: MapProviderRegistry? = null
     private var _providerId: String? = null
+    private var _options: MapOptions? = null
 
     private val _mapFlow = MutableStateFlow<MapInstance?>(null)
 
@@ -66,12 +73,28 @@ open class MapFragment : Fragment() {
         )
     }
 
-    fun initialize(registry: MapProviderRegistry, providerId: String) {
-        _registry = registry; _providerId = providerId
+    /**
+     * Initialize with a custom registry and provider.
+     * If not called, [MapProviderRegistry.instance] is used by default.
+     */
+    fun initialize(
+        registry: MapProviderRegistry,
+        providerId: String,
+        options: MapOptions = MapOptions()
+    ) {
+        _registry = registry
+        _providerId = providerId
+        _options = options
     }
 
+    /**
+     * Switch to a different provider at runtime.
+     * The current map will be destroyed and a new one created.
+     */
     fun switchProvider(providerId: String) {
-        _providerId = providerId; destroyMap(); createMap()
+        _providerId = providerId
+        destroyMap()
+        createMap()
     }
 
     override fun onCreateView(inflater: LayoutInflater, parent: ViewGroup?, state: Bundle?): View {
@@ -82,42 +105,63 @@ open class MapFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState); createMap()
+        super.onViewCreated(view, savedInstanceState)
+        createMap()
     }
 
     override fun onResume() {
-        super.onResume(); mapHost?.onResume()
+        super.onResume()
+        mapHost?.onResume()
     }
 
     override fun onPause() {
-        super.onPause(); mapHost?.onPause()
+        super.onPause()
+        mapHost?.onPause()
     }
 
     override fun onDestroyView() {
-        destroyMap(); scope.cancel(); super.onDestroyView()
+        destroyMap()
+        scope.cancel()
+        super.onDestroyView()
     }
 
     // ── Internal ──
 
     private fun createMap() {
-        val r = _registry ?: return;
-        val id = _providerId ?: return
+        val registry = _registry ?: MapProviderRegistry.instance
+        val providerId = _providerId ?: run {
+            android.util.Log.w(
+                TAG,
+                "No providerId set. Call initialize() or use MapFragment.create()"
+            )
+            return
+        }
         val parent = container ?: return
-        val factory = r.get(id)
+
+        val factory: MapInstanceFactory
+        try {
+            factory = registry.get(providerId)
+        } catch (e: NoSuchElementException) {
+            android.util.Log.e(TAG, "Provider '$providerId' not registered")
+            _mapFlow.value = null
+            return
+        }
+
+        val options = _options ?: MapOptions()
 
         scope.launch {
             when (factory.checkAvailability(requireContext())) {
                 is MapAvailability.Available -> {
                     val host = factory.createMapHost(requireContext(), parent)
                     mapHost = host
-                    val instance = factory.createMapInstance(requireContext(), MapOptions()).also {
-                        it.init(host, MapOptions())
+                    val instance = factory.createMapInstance(requireContext(), options).also {
+                        it.init(host, options)
                     }
                     _mapFlow.value = instance
                 }
 
                 is MapAvailability.Unavailable -> {
-                    android.util.Log.e(TAG, "Provider '$id' unavailable")
+                    android.util.Log.e(TAG, "Provider '$providerId' unavailable")
                     _mapFlow.value = null
                 }
             }
@@ -134,5 +178,21 @@ open class MapFragment : Fragment() {
     companion object {
         private const val TAG = "MapFragment"
         private const val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT
+
+        /**
+         * Create a [MapFragment] with the given provider ID.
+         * Uses [MapProviderRegistry.instance] as the default registry.
+         *
+         * @param providerId The provider identifier (e.g., "google", "amap").
+         * @param options Optional [MapOptions] for initialization.
+         * @return A configured [MapFragment] ready to be added to a FragmentManager.
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun create(providerId: String, options: MapOptions = MapOptions()): MapFragment {
+            return MapFragment().apply {
+                initialize(MapProviderRegistry.instance, providerId, options)
+            }
+        }
     }
 }

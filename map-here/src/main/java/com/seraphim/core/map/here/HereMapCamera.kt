@@ -9,6 +9,7 @@ import com.seraphim.core.map.commons.model.LatLng
 import com.seraphim.core.map.commons.model.LatLngBounds
 import com.here.sdk.mapview.MapCamera as HereMapNativeCamera
 
+
 class HereMapCamera(private val mv: MapView) : MapCamera {
     private val camera: HereMapNativeCamera get() = mv.camera
 
@@ -38,6 +39,11 @@ class HereMapCamera(private val mv: MapView) : MapCamera {
         if (zoom != null) camera.zoomTo(zoom.toDouble())
     }
 
+    override fun moveTo(position: CameraPosition) {
+        camera.lookAt(GeoCoordinates(position.target.latitude, position.target.longitude))
+        camera.zoomTo(position.zoom.toDouble())
+    }
+
     override fun animateTo(
         target: LatLng,
         zoom: Float?,
@@ -46,6 +52,10 @@ class HereMapCamera(private val mv: MapView) : MapCamera {
         durationMs: Int
     ) {
         moveTo(target, zoom)
+    }
+
+    override fun animateTo(position: CameraPosition, durationMs: Int) {
+        moveTo(position)
     }
 
     override fun animateToBounds(
@@ -71,6 +81,8 @@ class HereMapCamera(private val mv: MapView) : MapCamera {
 
     override fun zoomBy(amount: Float) { /* TODO */
     }
+
+    // ── Coordinate Conversion ──
 
     override fun screenToLatLng(x: Int, y: Int): LatLng {
         val g = mv.viewToGeoCoordinates(Point2D(x.toDouble(), y.toDouble()))!!

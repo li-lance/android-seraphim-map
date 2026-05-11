@@ -51,6 +51,19 @@ class GoogleMapCamera(
         }
     }
 
+    override fun moveTo(position: ModelCameraPosition) {
+        map.moveCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.builder()
+                    .target(LatLng(position.target.latitude, position.target.longitude))
+                    .zoom(position.zoom)
+                    .tilt(position.tilt)
+                    .bearing(position.bearing)
+                    .build()
+            )
+        )
+    }
+
     override fun animateTo(
         target: ModelLatLng,
         zoom: Float?,
@@ -68,6 +81,21 @@ class GoogleMapCamera(
 
         map.animateCamera(
             CameraUpdateFactory.newCameraPosition(builder.build()),
+            durationMs,
+            null
+        )
+    }
+
+    override fun animateTo(position: ModelCameraPosition, durationMs: Int) {
+        map.animateCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.builder()
+                    .target(LatLng(position.target.latitude, position.target.longitude))
+                    .zoom(position.zoom)
+                    .tilt(position.tilt)
+                    .bearing(position.bearing)
+                    .build()
+            ),
             durationMs,
             null
         )
@@ -97,6 +125,8 @@ class GoogleMapCamera(
             callback
         )
     }
+
+    // ── Zoom ──
 
     override fun zoomIn() {
         map.animateCamera(CameraUpdateFactory.zoomIn())

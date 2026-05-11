@@ -14,8 +14,7 @@ data class MarkerOptions(
     val draggable: Boolean = false,
     val flat: Boolean = false,
     val zIndex: Float = 0f,
-    val visible: Boolean = true,
-    val tag: Any? = null
+    val visible: Boolean = true
 ) {
     companion object {
         val ANCHOR_CENTER = Pair(0.5f, 0.5f)

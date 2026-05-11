@@ -15,12 +15,9 @@ import com.skt.tmap.overlay.TMapPolyLine
 import com.skt.tmap.overlay.TMapPolygon
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import com.seraphim.core.map.commons.model.CameraPosition as ModelCameraPosition
 import com.seraphim.core.map.commons.model.Circle as ModelCircle
 import com.seraphim.core.map.commons.model.CircleOptions as ModelCircleOptions
 import com.seraphim.core.map.commons.model.LatLng as ModelLatLng
-import com.seraphim.core.map.commons.model.LatLngBounds as ModelLatLngBounds
-import com.seraphim.core.map.commons.model.MapPadding as ModelMapPadding
 import com.seraphim.core.map.commons.model.Marker as ModelMarker
 import com.seraphim.core.map.commons.model.MarkerOptions as ModelMarkerOptions
 import com.seraphim.core.map.commons.model.Polygon as ModelPolygon
@@ -153,40 +150,6 @@ open class TmapMapInstance : MapInstance {
         polylines.clear(); polygons.clear(); circles.clear()
     }
 
-    override var mapType: MapType
-        get() = MapType.NORMAL
-        set(v) {
-            applyMapType(v)
-        }
-
-
-    override fun moveCamera(position: ModelCameraPosition, animate: Boolean) {
-        if (animate) {
-            camera.animateTo(
-                target = position.target,
-                zoom = position.zoom,
-                tilt = position.tilt,
-                bearing = position.bearing
-            )
-        } else {
-            camera.moveTo(position.target, position.zoom)
-        }
-    }
-
-    override fun animateCameraToBounds(bounds: ModelLatLngBounds, padding: Int) {
-        camera.animateToBounds(bounds, padding)
-    }
-
-    override val cameraPosition: ModelCameraPosition
-        get() = camera.current
-
-    override fun setPadding(padding: ModelMapPadding) {
-        // TODO: provider-specific padding
-    }
-
-    override fun resetPadding() {
-        // TODO: provider-specific reset
-    }
 
     override fun enableUserLocation(enabled: Boolean) {
         mv.setIconVisibility(enabled)

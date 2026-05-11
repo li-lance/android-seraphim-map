@@ -49,6 +49,17 @@ class YandexMapCamera(
         )
     }
 
+    override fun moveTo(position: ModelCameraPosition) {
+        map.move(
+            CameraPosition(
+                YandexPoint(position.target.latitude, position.target.longitude),
+                position.zoom,
+                position.tilt,
+                position.bearing
+            )
+        )
+    }
+
     override fun animateTo(
         target: LatLng,
         zoom: Float?,
@@ -63,6 +74,18 @@ class YandexMapCamera(
                 zoom ?: cur.zoom,
                 tilt ?: cur.tilt,
                 bearing ?: cur.azimuth
+            ),
+            Animation(Animation.Type.SMOOTH, durationMs.toFloat() / 1000f), null
+        )
+    }
+
+    override fun animateTo(position: ModelCameraPosition, durationMs: Int) {
+        map.move(
+            CameraPosition(
+                YandexPoint(position.target.latitude, position.target.longitude),
+                position.zoom,
+                position.tilt,
+                position.bearing
             ),
             Animation(Animation.Type.SMOOTH, durationMs.toFloat() / 1000f), null
         )
@@ -112,6 +135,8 @@ class YandexMapCamera(
             null
         )
     }
+
+    // ── Coordinate Conversion ──
 
     override fun screenToLatLng(x: Int, y: Int): LatLng = LatLng(0.0, 0.0)
     override fun latLngToScreen(location: LatLng): Point = Point(0, 0)
