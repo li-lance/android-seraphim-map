@@ -3,7 +3,7 @@ package com.seraphim.core.map.tmap
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
-import com.seraphim.core.map.commons.MapUiSettings
+import com.seraphim.core.map.commons.UiSettings
 import com.seraphim.core.map.commons.model.CameraState
 import com.seraphim.core.map.commons.model.ClusterItem
 import com.seraphim.core.map.commons.model.MapType
@@ -15,9 +15,12 @@ import com.skt.tmap.overlay.TMapPolyLine
 import com.skt.tmap.overlay.TMapPolygon
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import com.seraphim.core.map.commons.model.CameraPosition as ModelCameraPosition
 import com.seraphim.core.map.commons.model.Circle as ModelCircle
 import com.seraphim.core.map.commons.model.CircleOptions as ModelCircleOptions
 import com.seraphim.core.map.commons.model.LatLng as ModelLatLng
+import com.seraphim.core.map.commons.model.LatLngBounds as ModelLatLngBounds
+import com.seraphim.core.map.commons.model.MapPadding as ModelMapPadding
 import com.seraphim.core.map.commons.model.Marker as ModelMarker
 import com.seraphim.core.map.commons.model.MarkerOptions as ModelMarkerOptions
 import com.seraphim.core.map.commons.model.Polygon as ModelPolygon
@@ -36,7 +39,17 @@ open class TmapMapInstance : MapInstance {
     private val circles = mutableListOf<TMapCircle>()
 
     override val camera = TmapMapCamera { mapView }
-    override val uiSettings: MapUiSettings = TmapMapUiSettings { mapView }
+    private var _uiSettings = UiSettings()
+    override val uiSettings: UiSettings get() = _uiSettings
+
+    override fun updateUiSettings(settings: UiSettings) {
+        _uiSettings = settings
+        applyUiSettings(settings)
+    }
+
+    private fun applyUiSettings(settings: UiSettings) {
+        // TODO: apply to native map for tmap
+    }
 
     override suspend fun init(host: MapHost, options: MapOptions) {
         val mv = host.awaitNativeMap() as? TMapView
@@ -146,6 +159,35 @@ open class TmapMapInstance : MapInstance {
             applyMapType(v)
         }
 
+
+    override fun moveCamera(position: ModelCameraPosition, animate: Boolean) {
+        if (animate) {
+            camera.animateTo(
+                target = position.target,
+                zoom = position.zoom,
+                tilt = position.tilt,
+                bearing = position.bearing
+            )
+        } else {
+            camera.moveTo(position.target, position.zoom)
+        }
+    }
+
+    override fun animateCameraToBounds(bounds: ModelLatLngBounds, padding: Int) {
+        camera.animateToBounds(bounds, padding)
+    }
+
+    override val cameraPosition: ModelCameraPosition
+        get() = camera.current
+
+    override fun setPadding(padding: ModelMapPadding) {
+        // TODO: provider-specific padding
+    }
+
+    override fun resetPadding() {
+        // TODO: provider-specific reset
+    }
+
     override fun enableUserLocation(enabled: Boolean) {
         mv.setIconVisibility(enabled)
     }
@@ -209,6 +251,10 @@ private class TmapMarker(override val id: String, val native: TMapMarkerItem) : 
         set(v) {
             native.visible = v
         }
+    override var tag: Any?
+        get() = null // TMapMarkerItem.id is String, cannot store Any
+        set(value) { /* store in wrapper if needed */ }
+
     override fun remove() {}
 }
 

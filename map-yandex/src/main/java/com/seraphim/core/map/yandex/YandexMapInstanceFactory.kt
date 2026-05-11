@@ -1,27 +1,21 @@
 package com.seraphim.core.map.yandex
 
+import android.app.Application
 import android.content.Context
+import android.util.Log
 import android.view.ViewGroup
+import com.seraphim.core.map.commons.MapCredentials
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
+import com.seraphim.core.map.commons.MapSdkInitializer
 import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
+import com.yandex.mapkit.MapKitFactory
 
-/**
- * [MapInstanceFactory] for Yandex MapKit.
- *
- * Yandex MapKit requires initialization before use:
- * ```kotlin
- * MapKitFactory.setApiKey("your_api_key")
- * MapKitFactory.initialize(context)
- * ```
- *
- * This should be done by the host application in Application.onCreate().
- */
-class YandexMapInstanceFactory : MapInstanceFactory {
+class YandexMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
 
     override val providerId: String = "yandex"
 
@@ -61,5 +55,23 @@ class YandexMapInstanceFactory : MapInstanceFactory {
 
     override fun createLocationDecoder(context: Context): LocationDecoder {
         return YandexLocationDecoder(context)
+    }
+
+    // ── MapSdkInitializer ──
+
+    override fun init(app: Application, credentials: MapCredentials) {
+        val key = when (credentials) {
+            is MapCredentials.ApiKey -> credentials.key
+            else -> {
+                Log.w("Yandex", "Yandex requires ApiKey credentials"); return
+            }
+        }
+        try {
+            MapKitFactory.setApiKey(key)
+            MapKitFactory.initialize(app)
+            Log.d("Yandex", "Yandex MapKit initialized")
+        } catch (e: Exception) {
+            Log.w("Yandex", "Yandex MapKit not found")
+        }
     }
 }

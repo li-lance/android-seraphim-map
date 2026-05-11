@@ -1,16 +1,22 @@
 package com.seraphim.core.map.amap
 
+import android.app.Application
 import android.content.Context
+import android.util.Log
 import android.view.ViewGroup
+import com.amap.api.location.AMapLocationClient
+import com.amap.api.maps.MapsInitializer
+import com.seraphim.core.map.commons.MapCredentials
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
+import com.seraphim.core.map.commons.MapSdkInitializer
 import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
 
-class AMapMapInstanceFactory : MapInstanceFactory {
+class AMapMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
     override val providerId = "amap"
 
     override suspend fun checkAvailability(context: Context): MapAvailability {
@@ -37,4 +43,27 @@ class AMapMapInstanceFactory : MapInstanceFactory {
 
     override fun createLocationDecoder(context: Context): LocationDecoder =
         AMapLocationDecoder(context)
+
+    // ── MapSdkInitializer ──
+
+    override fun init(app: Application, credentials: MapCredentials) {
+        try {
+            MapsInitializer.updatePrivacyShow(app, true, true)
+            MapsInitializer.updatePrivacyAgree(app, true)
+
+            try {
+                AMapLocationClient.updatePrivacyShow(app, true, true)
+                AMapLocationClient.updatePrivacyAgree(app, true)
+            } catch (e: Exception) {
+                Log.w(TAG, "AMap Location SDK not found, skip location privacy init")
+            }
+            Log.d(TAG, "AMap SDK initialized")
+        } catch (e: Exception) {
+            Log.w(TAG, "AMap SDK not found")
+        }
+    }
+
+    companion object {
+        private const val TAG = "AMapMapInstanceFactory"
+    }
 }

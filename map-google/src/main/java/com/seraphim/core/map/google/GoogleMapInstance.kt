@@ -18,7 +18,7 @@ import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
 import com.seraphim.core.map.commons.MapStyle
-import com.seraphim.core.map.commons.MapUiSettings
+import com.seraphim.core.map.commons.UiSettings
 import com.seraphim.core.map.commons.model.CameraMoveReason
 import com.seraphim.core.map.commons.model.CameraState
 import com.seraphim.core.map.commons.model.ClusterItem
@@ -26,9 +26,12 @@ import com.seraphim.core.map.commons.model.IconProvider
 import com.seraphim.core.map.commons.model.MapType
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import com.seraphim.core.map.commons.model.CameraPosition as ModelCameraPosition
 import com.seraphim.core.map.commons.model.Circle as ModelCircle
 import com.seraphim.core.map.commons.model.CircleOptions as ModelCircleOptions
 import com.seraphim.core.map.commons.model.LatLng as ModelLatLng
+import com.seraphim.core.map.commons.model.LatLngBounds as ModelLatLngBounds
+import com.seraphim.core.map.commons.model.MapPadding as ModelMapPadding
 import com.seraphim.core.map.commons.model.Marker as ModelMarker
 import com.seraphim.core.map.commons.model.MarkerOptions as ModelMarkerOptions
 import com.seraphim.core.map.commons.model.Polygon as ModelPolygon
@@ -58,7 +61,13 @@ open class GoogleMapInstance : MapInstance {
     private val circles = mutableListOf<Circle>()
 
     override val camera = GoogleMapCamera { googleMap }
-    override val uiSettings: MapUiSettings = GoogleMapUiSettings { googleMap }
+    private var _uiSettings = UiSettings()
+    override val uiSettings: UiSettings get() = _uiSettings
+
+    override fun updateUiSettings(settings: UiSettings) {
+        _uiSettings = settings
+        googleMap?.let { GoogleMapUiSettings.apply(it, settings) }
+    }
 
     // ── Init ──
 
@@ -279,7 +288,7 @@ open class GoogleMapInstance : MapInstance {
         circles.clear()
     }
 
-    // ── Map type ──
+    // ── MapViewport (delegated to camera) ──
 
     override var mapType: MapType
         get() = googleMap?.let { m ->
@@ -296,7 +305,35 @@ open class GoogleMapInstance : MapInstance {
             googleMap?.let { applyMapType(value) }
         }
 
-    // ── User location ──
+    override fun moveCamera(position: ModelCameraPosition, animate: Boolean) {
+        if (animate) {
+            camera.animateTo(
+                target = position.target,
+                zoom = position.zoom,
+                tilt = position.tilt,
+                bearing = position.bearing
+            )
+        } else {
+            camera.moveTo(position.target, position.zoom)
+        }
+    }
+
+    override fun animateCameraToBounds(bounds: ModelLatLngBounds, padding: Int) {
+        camera.animateToBounds(bounds, padding)
+    }
+
+    override val cameraPosition: ModelCameraPosition
+        get() = camera.current
+
+    override fun setPadding(padding: ModelMapPadding) {
+        map.setPadding(padding.left, padding.top, padding.right, padding.bottom)
+    }
+
+    override fun resetPadding() {
+        map.setPadding(0, 0, 0, 0)
+    }
+
+    // ── MapAnnotations ──
 
     override fun enableUserLocation(enabled: Boolean) {
         try {
@@ -391,6 +428,12 @@ private class GoogleMarker(
         get() = native.isVisible
         set(value) {
             native.isVisible = value
+        }
+
+    override var tag: Any?
+        get() = native.tag
+        set(value) {
+            native.tag = value
         }
 
     override fun remove() {

@@ -13,6 +13,9 @@ interface Marker {
     /** Whether the marker is visible. */
     var visible: Boolean
 
+    /** Optional business data attached to this marker (e.g., charging station, POI). */
+    var tag: Any?
+
     /** Remove this marker from the map. */
     fun remove()
 }

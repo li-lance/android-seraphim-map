@@ -14,7 +14,7 @@ import com.here.sdk.mapview.MapView
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
-import com.seraphim.core.map.commons.MapUiSettings
+import com.seraphim.core.map.commons.UiSettings
 import com.seraphim.core.map.commons.model.CameraState
 import com.seraphim.core.map.commons.model.Circle
 import com.seraphim.core.map.commons.model.CircleOptions
@@ -31,6 +31,9 @@ import com.seraphim.core.map.commons.model.PolylineOptions
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import com.here.sdk.mapview.MapScene as HereMapScene
+import com.seraphim.core.map.commons.model.CameraPosition as ModelCameraPosition
+import com.seraphim.core.map.commons.model.LatLngBounds as ModelLatLngBounds
+import com.seraphim.core.map.commons.model.MapPadding as ModelMapPadding
 
 open class HereMapInstance : MapInstance {
 
@@ -44,7 +47,18 @@ open class HereMapInstance : MapInstance {
     private val polygons = mutableListOf<MapPolygon>()
 
     override val camera by lazy { HereMapCamera(mv) }
-    override val uiSettings: MapUiSettings by lazy { HereMapUiSettings { scene } }
+    private var _uiSettings = UiSettings()
+    override val uiSettings: UiSettings get() = _uiSettings
+
+    override fun updateUiSettings(settings: UiSettings) {
+        _uiSettings = settings
+        applyUiSettings(settings)
+    }
+
+    private fun applyUiSettings(settings: UiSettings) {
+        // HERE 4.25.5 does not expose gesture/control toggles via MapScene
+        // Log unsupported settings at debug level
+    }
 
     override suspend fun init(host: MapHost, opts: MapOptions) {
         val native = host.awaitNativeMap() as? MapView
@@ -169,6 +183,35 @@ open class HereMapInstance : MapInstance {
             applyMapType(v)
         }
 
+
+    override fun moveCamera(position: ModelCameraPosition, animate: Boolean) {
+        if (animate) {
+            camera.animateTo(
+                target = position.target,
+                zoom = position.zoom,
+                tilt = position.tilt,
+                bearing = position.bearing
+            )
+        } else {
+            camera.moveTo(position.target, position.zoom)
+        }
+    }
+
+    override fun animateCameraToBounds(bounds: ModelLatLngBounds, padding: Int) {
+        camera.animateToBounds(bounds, padding)
+    }
+
+    override val cameraPosition: ModelCameraPosition
+        get() = camera.current
+
+    override fun setPadding(padding: ModelMapPadding) {
+        // TODO: provider-specific padding
+    }
+
+    override fun resetPadding() {
+        // TODO: provider-specific reset
+    }
+
     override fun enableUserLocation(enabled: Boolean) { /* TODO: LocationIndicator */
     }
 
@@ -194,6 +237,10 @@ private class HereMarker(override val id: String, val native: MapMarker) : Marke
         }
         set(v) { /* immutable */ }
     override var visible: Boolean = true
+    override var tag: Any?
+        get() = null // HERE Metadata does not expose raw data directly
+        set(value) { /* TODO: store in wrapper if needed */ }
+
     override fun remove() { /* caller handles removal */
     }
 }

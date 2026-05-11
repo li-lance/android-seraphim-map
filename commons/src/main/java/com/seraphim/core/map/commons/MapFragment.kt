@@ -12,6 +12,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -21,6 +25,9 @@ import kotlinx.coroutines.launch
  * Usage:
  * ```
  * val fragment = MapFragment().apply { initialize(registry, "google") }
+ * fragment.mapFlow.collect { mapInstance ->
+ *     // mapInstance is non-null when ready
+ * }
  * ```
  *
  * Switch provider: `fragment.switchProvider("yandex")`
@@ -30,21 +37,33 @@ open class MapFragment : Fragment() {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var container: FrameLayout? = null
     private var mapHost: MapHost? = null
-    private var _map: MapInstance? = null
     private var _registry: MapProviderRegistry? = null
     private var _providerId: String? = null
 
-    val map: MapInstance? get() = _map
+    private val _mapFlow = MutableStateFlow<MapInstance?>(null)
 
-    /** Suspend until the map is ready. */
-    suspend fun getMap(): MapInstance {
-        var attempts = 0
-        while (_map == null && attempts < 100) {
-            kotlinx.coroutines.delay(100)
-            attempts++
-        }
-        return _map
-            ?: throw IllegalStateException("Map not initialized. Call initialize() before adding Fragment.")
+    /**
+     * A [StateFlow] that emits the current [MapInstance] state.
+     *
+     * - `null` — map is not yet initialized or was destroyed.
+     * - non-null — map is ready for use.
+     *
+     * Collect this in your UI layer (e.g., `lifecycleScope`) to react
+     * to initialization, provider switches, and lifecycle events.
+     */
+    val mapFlow: StateFlow<MapInstance?> = _mapFlow
+
+    /** Convenience accessor for the current map instance (null if not ready). */
+    val map: MapInstance? get() = _mapFlow.value
+
+    /** Suspend until the map is ready, with an optional timeout. */
+    suspend fun awaitMap(timeoutMs: Long = 10000): MapInstance {
+        return kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+            _mapFlow.filterNotNull().first()
+        } ?: throw IllegalStateException(
+            "Map not initialized within ${timeoutMs}ms. " +
+                    "Call initialize() before adding Fragment."
+        )
     }
 
     fun initialize(registry: MapProviderRegistry, providerId: String) {
@@ -91,20 +110,25 @@ open class MapFragment : Fragment() {
                 is MapAvailability.Available -> {
                     val host = factory.createMapHost(requireContext(), parent)
                     mapHost = host
-                    _map = factory.createMapInstance(requireContext(), MapOptions()).also {
+                    val instance = factory.createMapInstance(requireContext(), MapOptions()).also {
                         it.init(host, MapOptions())
                     }
+                    _mapFlow.value = instance
                 }
 
                 is MapAvailability.Unavailable -> {
                     android.util.Log.e(TAG, "Provider '$id' unavailable")
+                    _mapFlow.value = null
                 }
             }
         }
     }
 
     private fun destroyMap() {
-        _map = null; container?.removeAllViews(); mapHost?.onDestroy(); mapHost = null
+        _mapFlow.value = null
+        container?.removeAllViews()
+        mapHost?.onDestroy()
+        mapHost = null
     }
 
     companion object {

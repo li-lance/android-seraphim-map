@@ -1,13 +1,16 @@
 package com.seraphim.core.map.google
 
+import android.app.Application
 import android.content.Context
 import android.view.ViewGroup
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.maps.SupportMapFragment
+import com.seraphim.core.map.commons.MapCredentials
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
+import com.seraphim.core.map.commons.MapSdkInitializer
 import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
@@ -17,8 +20,9 @@ import com.seraphim.core.map.commons.registry.MapInstanceFactory
  * [MapInstanceFactory] for Google Maps.
  *
  * Checks Google Play Services availability before creating instances.
+ * SDK init is a no-op (API key is configured in AndroidManifest).
  */
-class GoogleMapInstanceFactory : MapInstanceFactory {
+class GoogleMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
 
     override val providerId: String = "google"
 
@@ -71,5 +75,12 @@ class GoogleMapInstanceFactory : MapInstanceFactory {
 
     override fun createLocationDecoder(context: Context): LocationDecoder {
         return GoogleLocationDecoder(context)
+    }
+
+    // ── MapSdkInitializer (no-op for Google) ──
+
+    override fun init(app: Application, credentials: MapCredentials) {
+        // Google Maps API key is configured in AndroidManifest meta-data.
+        // No runtime SDK initialization required.
     }
 }

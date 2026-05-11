@@ -1,24 +1,24 @@
 package com.seraphim.core.map.commons
 
 /**
- * Runtime UI settings for a map instance.
- * Setting an unsupported property is silently ignored by the provider.
+ * Configuration for map UI controls and gestures.
+ * Unsupported features are silently ignored by provider implementations (logged at debug level).
  */
-interface MapUiSettings {
+data class UiSettings(
     // Gestures
-    var scrollGesturesEnabled: Boolean
-    var zoomGesturesEnabled: Boolean
-    var rotateGesturesEnabled: Boolean
-    var tiltGesturesEnabled: Boolean
+    val scrollGesturesEnabled: Boolean = true,
+    val zoomGesturesEnabled: Boolean = true,
+    val rotateGesturesEnabled: Boolean = true,
+    val tiltGesturesEnabled: Boolean = true,
 
     // Controls
-    var compassEnabled: Boolean
-    var myLocationButtonEnabled: Boolean
-    var zoomControlsEnabled: Boolean
-    var mapToolbarEnabled: Boolean
+    val compassEnabled: Boolean = false,
+    val myLocationButtonEnabled: Boolean = false,
+    val zoomControlsEnabled: Boolean = false,
+    val mapToolbarEnabled: Boolean = false,
 
     // Map content
-    var trafficEnabled: Boolean
-    var indoorEnabled: Boolean
-    var buildingsEnabled: Boolean
-}
+    val trafficEnabled: Boolean = false,
+    val indoorEnabled: Boolean = false,
+    val buildingsEnabled: Boolean = true
+)
