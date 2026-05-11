@@ -10,7 +10,7 @@ Unified map abstraction layer for Android. Write once, run on **Google Maps**, *
 
 | Module | Description | Clustering | Status |
 |--------|-------------|-----------|--------|
-| `commons` | Core interfaces, data models, registry, MapFragment, MapProviders | — | ✅ |
+| `commons` | Core interfaces, data models, MapInitializer, MapFragment, MapProviders | — | ✅ |
 | `map-google` | Google Maps (Play Services) | ✅ ClusterManager | ✅ |
 | `map-amap` | 高德地图 AMap 3D SDK | ⚠️ TODO | ✅ |
 | `map-here` | HERE SDK Explore Edition | ❌ | ⚠️ Requires HERE auth |
@@ -20,108 +20,122 @@ Unified map abstraction layer for Android. Write once, run on **Google Maps**, *
 ## Architecture
 
 ```
-MapInstance (interface)
-├── camera: MapCamera          ← moveTo / animateTo / zoom / bounds
-├── uiSettings: MapUiSettings  ← gestures / traffic / controls
-├── addMarker() / addPolyline() / addPolygon() / addCircle()
-├── onMapClick / onMarkerClick / onCameraChange (property-style)
-└── ClusterableMap (separate interface for clustering)
+MapInitializer (Application init)
+└── init(app, MapProviders.AMAP) → activeProvider set
 
-MapHost (interface)
-└── awaitNativeMap() + lifecycle callbacks
+MapProviderRegistry.instance (global singleton)
+└── register(Factory) / get(providerId)
 
 MapFragment (Fragment)
-└── initialize(registry, MapProviders.XXX)  ← auto lifecycle + provider switching
+└── initialize(registry, providerId) → auto lifecycle
 
-MapProviderRegistry
-└── register(Factory) / get(providerId) / dispose()
+MapInstance (interface)
+├── camera: MapCamera          ← moveTo / animateTo / zoom
+├── uiSettings: MapUiSettings  ← gestures / traffic / controls
+├── addMarker() / addPolyline() / addPolygon() / addCircle()
+└── onMapClick / onMarkerClick / onCameraChange (property-style)
 ```
 
 ## Quick Start
 
-This repo is part of `android-seraphim-framework` managed by [git-repo](https://gerrit.googlesource.com/git-repo/). Clone via:
+This repo is part of `android-seraphim-framework` managed by [git-repo](https://gerrit.googlesource.com/git-repo/):
 
 ```bash
 repo init -u git@github.com:li-lance/android-seraphim-framework.git -m manifests/default.xml
 repo sync
 ```
 
-Or add as a Maven dependency via GitHub Packages:
+Or as Maven dependencies via GitHub Packages:
 
 ```kotlin
 // settings.gradle.kts
-dependencyResolutionManagement {
-    repositories {
-        maven("https://maven.pkg.github.com/li-lance/android-seraphim-map") {
-            credentials {
-                username = providers.gradleProperty("GITHUB_PACKAGES_USER").orNull ?: ""
-                password = providers.gradleProperty("GITHUB_PACKAGES_TOKEN").orNull ?: ""
-            }
-        }
+maven("https://maven.pkg.github.com/li-lance/android-seraphim-map") {
+    credentials {
+        username = providers.gradleProperty("GITHUB_PACKAGES_USER").orNull ?: ""
+        password = providers.gradleProperty("GITHUB_PACKAGES_TOKEN").orNull ?: ""
     }
 }
 
 // build.gradle.kts
 dependencies {
     implementation("com.seraphim.map:map-commons:1.0.0")
-    implementation("com.seraphim.map:map-google:1.0.0")
+    implementation("com.seraphim.map:map-amap:1.0.0")
 }
 ```
 
 ## Usage
 
-### MapFragment (recommended)
+### Step 1: Application initialization
 
 ```kotlin
-val registry = MapProviderRegistry()
-registry.register(GoogleMapInstanceFactory())
+class MyApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
 
-val mapFragment = MapFragment().apply {
-    initialize(registry, MapProviders.GOOGLE)
+        // Init SDK (privacy compliance, API keys) + set active provider
+        MapInitializer.init(this, MapProviders.AMAP)
+
+        // Register provider factories into global singleton
+        MapProviderRegistry.instance.register(AMapMapInstanceFactory())
+    }
 }
-supportFragmentManager.beginTransaction()
-    .replace(android.R.id.content, mapFragment)
-    .commit()
-
-scope.launch {
-    val map = mapFragment.getMap()
-    map.addMarker(MarkerOptions(LatLng(37.56, 126.97), "Seoul"))
-}
-
-// Switch provider at runtime
-mapFragment.switchProvider(MapProviders.AMAP)
 ```
 
-### Manual (MapHost)
+### Step 2: Use MapFragment
 
 ```kotlin
-val registry = MapProviderRegistry()
-registry.register(AMapMapInstanceFactory())
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-val host = registry.get(MapProviders.AMAP).createMapHost(context, parent)
-val map = registry.get(MapProviders.AMAP).createMapInstance(context, MapOptions(
-    initialCamera = InitialCamera.Position(LatLng(37.56, 126.97), zoom = 14f)
-))
+        val registry = MapProviderRegistry.instance
+        val mapFragment = MapFragment().apply {
+            initialize(registry, MapInitializer.activeProvider)
+        }
+        supportFragmentManager.beginTransaction()
+            .add(R.id.map_container, mapFragment)
+            .commit()
 
-scope.launch {
-    map.init(host, options)
-    map.addMarker(MarkerOptions(LatLng(37.5665, 126.9780), title = "Seoul"))
+        scope.launch {
+            val map = mapFragment.getMap()
+            map.addMarker(MarkerOptions(LatLng(39.90, 116.40), "Beijing"))
+        }
+    }
 }
+```
+
+### Provider switching
+
+```kotlin
+// Switch at runtime
+mapFragment.switchProvider(MapProviders.TMAP)
 ```
 
 ## Provider Setup
 
-### Google Maps
+### AMap (高德)
+
+AMap requires privacy compliance + SHA1 API key registration.
+
+**1. SHA1 key registration:**
+```bash
+# Get SHA1 from logcat (printed at app startup):
+adb logcat -s MapApplication
+# W/MapApplication: SHA1: 915027FC41A303544C23491A8201108E464E3925
+```
+Register the SHA1 at https://console.amap.com/dev/key/app
+
+**2. AndroidManifest.xml:**
 ```xml
-<!-- AndroidManifest.xml -->
-<meta-data android:name="com.google.android.geo.API_KEY" android:value="YOUR_KEY"/>
+<meta-data android:name="com.amap.api.v2.apikey" android:value="YOUR_AMAP_KEY"/>
 ```
 
-### AMap (高德)
-```kotlin
-// No special setup needed — AMap 3D SDK handles privacy compliance internally.
-// Dependency:
-implementation("com.amap.api:3dmap:10.0.600")
+**3. Privacy compliance** — handled automatically by `MapInitializer.init()`. No extra code needed.
+
+### Google Maps
+
+```xml
+<meta-data android:name="com.google.android.geo.API_KEY" android:value="YOUR_KEY"/>
 ```
 
 ### HERE SDK
@@ -133,19 +147,18 @@ HERE_ACCESS_KEY_SECRET=your_secret
 
 ### Yandex MapKit
 ```kotlin
-MapKitFactory.setApiKey("your_api_key")
-MapKitFactory.initialize(context)
+// Handled by MapInitializer with apiKey parameter:
+MapInitializer.init(this, MapProviders.YANDEX, apiKey = "your_key")
 ```
 
 ### Tmap
-No SDK download needed — dependencies are hosted on GitHub Packages:
+Dependencies hosted on GitHub Packages:
 ```kotlin
 implementation("com.skt.tmap:tmap-sdk:3.5")
 implementation("com.skt.tmap:vsm-tmap-sdk:2.0.0")
 ```
 
-### Uploading third-party AARs
-Use `scripts/upload-aar-to-github.sh`:
+Upload custom AARs:
 ```bash
 export GITHUB_PACKAGES_USER=li-lance
 export GITHUB_PACKAGES_TOKEN=ghp_xxxx
@@ -155,7 +168,7 @@ bash scripts/upload-aar-to-github.sh path/to/lib.aar com.example artifact-id 1.0
 ## Publishing
 
 ```bash
-# Set credentials in ~/.gradle/gradle.properties:
+# ~/.gradle/gradle.properties:
 # GITHUB_PACKAGES_USER=your_username
 # GITHUB_PACKAGES_TOKEN=your_token (scope: write:packages)
 
@@ -166,13 +179,14 @@ bash scripts/upload-aar-to-github.sh path/to/lib.aar com.example artifact-id 1.0
 
 | Decision | Rationale |
 |----------|-----------|
-| No DI framework required | Registry pattern works with any DI or none |
-| Clustering as separate interface | Flexibility for providers without native support |
-| MapFragment for lifecycle | Auto-manages host lifecycle, supports runtime provider switching |
-| MapProviders constants | Type-safe provider IDs, no magic strings |
+| `MapInitializer.init(app, providerId)` | Single-source-of-truth for active provider + SDK init |
+| `MapProviderRegistry.instance` | Global singleton, no DI framework required |
+| `MapInitializer.activeProvider` | Read current provider from anywhere |
+| MapFragment for lifecycle | Auto-manages host lifecycle, supports runtime switching |
+| `MapProviders` constants | Type-safe provider IDs |
 | Android-only (not KMP) | Map rendering is inherently platform-specific |
 | Property-style listeners | Cleaner than 10+ setOnXxxListener methods |
-| GitHub Packages for third-party SDKs | Centralized dependency management, no manual AAR placement |
+| GitHub Packages for SDKs | Centralized dependency management |
 
 ## License
 
