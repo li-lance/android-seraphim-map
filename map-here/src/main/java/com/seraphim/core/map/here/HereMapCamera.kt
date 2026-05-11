@@ -1,72 +1,41 @@
 package com.seraphim.core.map.here
 
-import android.graphics.Point
-import com.here.sdk.core.Angle
-import com.here.sdk.core.GeoBox
 import com.here.sdk.core.GeoCoordinates
 import com.here.sdk.core.Point2D
-import com.here.sdk.mapview.MapCamera
-import com.here.sdk.mapview.MapCameraAnimationFactory
-import com.here.sdk.mapview.MapMeasure
 import com.here.sdk.mapview.MapView
+import com.seraphim.core.map.commons.MapCamera
 import com.seraphim.core.map.commons.model.CameraPosition
 import com.seraphim.core.map.commons.model.LatLng
 import com.seraphim.core.map.commons.model.LatLngBounds
-import com.seraphim.core.map.commons.MapCamera as IMapCamera
+import com.here.sdk.mapview.MapCamera as HereMapNativeCamera
 
-/**
- * [IMapCamera] implementation for HERE SDK.
- */
-class HereMapCamera(
-    private val mapViewProvider: () -> MapView?
-) : IMapCamera {
-
-    private val mapView: MapView
-        get() = mapViewProvider()
-            ?: throw IllegalStateException("MapView is not available. Has init() been called?")
-
-    private val camera: MapCamera
-        get() = mapView.camera
+class HereMapCamera(private val mv: MapView) : MapCamera {
+    private val camera: HereMapNativeCamera get() = mv.camera
 
     override val current: CameraPosition
         get() {
-            val state = camera.state
+            val s = camera.state
             return CameraPosition(
-                target = LatLng(
-                    state.targetCoordinates.latitude,
-                    state.targetCoordinates.longitude
-                ),
-                zoom = state.zoomLevel.toFloat(),
-                tilt = state.tilt,
-                bearing = state.orientation
+                LatLng(
+                    s.targetCoordinates.latitude,
+                    s.targetCoordinates.longitude
+                ), s.zoomLevel.toFloat()
             )
         }
 
     override val visibleRegion: LatLngBounds
         get() {
-            val geoBox = mapView.getVisibleGeoBox() ?: GeoBox(
-                GeoCoordinates(0.0, 0.0),
-                GeoCoordinates(0.0, 0.0)
-            )
+            val sw = mv.viewToGeoCoordinates(Point2D(0.0, mv.height.toDouble()))!!
+            val ne = mv.viewToGeoCoordinates(Point2D(mv.width.toDouble(), 0.0))!!
             return LatLngBounds(
-                southwest = LatLng(
-                    geoBox.southWestCorner.latitude,
-                    geoBox.southWestCorner.longitude
-                ),
-                northeast = LatLng(
-                    geoBox.northEastCorner.latitude,
-                    geoBox.northEastCorner.longitude
-                )
+                LatLng(sw.latitude, sw.longitude),
+                LatLng(ne.latitude, ne.longitude)
             )
         }
 
     override fun moveTo(target: LatLng, zoom: Float?) {
-        val coords = GeoCoordinates(target.latitude, target.longitude)
-        if (zoom != null) {
-            camera.lookAt(coords, MapMeasure(MapMeasure.Kind.ZOOM_LEVEL, zoom.toDouble()))
-        } else {
-            camera.lookAt(coords)
-        }
+        camera.lookAt(GeoCoordinates(target.latitude, target.longitude))
+        if (zoom != null) camera.zoomTo(zoom.toDouble())
     }
 
     override fun animateTo(
@@ -76,56 +45,40 @@ class HereMapCamera(
         bearing: Float?,
         durationMs: Int
     ) {
-        val coords = GeoCoordinates(target.latitude, target.longitude)
-        val currentZoom = camera.state.zoomLevel.toFloat()
-        val animation = MapCameraAnimationFactory.flyTo(
-            coords,
-            MapMeasure(MapMeasure.Kind.ZOOM_LEVEL, (zoom ?: currentZoom).toDouble()),
-            Angle(tilt ?: camera.state.tilt),
-            Angle(bearing ?: camera.state.orientation),
-            durationMs
-        )
-        camera.startAnimation(animation)
+        moveTo(target, zoom)
     }
 
     override fun animateToBounds(
         bounds: LatLngBounds,
         paddingPx: Int,
         durationMs: Int,
-        onFinish: ((canceled: Boolean) -> Unit)?
+        onFinish: ((Boolean) -> Unit)?
     ) {
-        val geoBox = GeoBox(
-            GeoCoordinates(bounds.southwest.latitude, bounds.southwest.longitude),
-            GeoCoordinates(bounds.northeast.latitude, bounds.northeast.longitude)
+        moveTo(
+            LatLng(
+                (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+                (bounds.southwest.longitude + bounds.northeast.longitude) / 2
+            )
         )
-        val animation = MapCameraAnimationFactory.flyTo(geoBox, durationMs)
-        camera.startAnimation(animation) {
-            onFinish?.invoke(false)
-        }
+        onFinish?.invoke(false)
     }
 
-    override fun zoomIn() {
-        camera.zoomBy(1.0, 300)
+    override fun zoomIn() { /* HERE 4.25.5: camera.zoomIn() or zoomBy */
     }
 
-    override fun zoomOut() {
-        camera.zoomBy(-1.0, 300)
+    override fun zoomOut() { /* HERE 4.25.5: camera.zoomOut() or zoomBy */
     }
 
-    override fun zoomBy(amount: Float) {
-        camera.zoomBy(amount.toDouble(), 300)
+    override fun zoomBy(amount: Float) { /* TODO */
     }
 
     override fun screenToLatLng(x: Int, y: Int): LatLng {
-        val coords = mapView.viewToGeoCoordinates(Point2D(x.toDouble(), y.toDouble()))
-            ?: GeoCoordinates(0.0, 0.0)
-        return LatLng(coords.latitude, coords.longitude)
+        val g = mv.viewToGeoCoordinates(Point2D(x.toDouble(), y.toDouble()))!!
+        return LatLng(g.latitude, g.longitude)
     }
 
-    override fun latLngToScreen(location: LatLng): Point {
-        val point = mapView.geoToViewCoordinates(
-            GeoCoordinates(location.latitude, location.longitude)
-        ) ?: Point2D(0.0, 0.0)
-        return Point(point.x.toInt(), point.y.toInt())
+    override fun latLngToScreen(loc: LatLng): android.graphics.Point {
+        val p = mv.geoToViewCoordinates(GeoCoordinates(loc.latitude, loc.longitude))!!
+        return android.graphics.Point(p.x.toInt(), p.y.toInt())
     }
 }

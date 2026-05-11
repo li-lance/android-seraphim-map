@@ -10,56 +10,26 @@ import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
 
-/**
- * [MapInstanceFactory] for HERE Maps.
- *
- * HERE SDK does not require special availability checks like Google Play Services.
- * However, it requires SDK initialization with access key/secret, which should
- * be performed by the host application before using this factory.
- */
 class HereMapInstanceFactory : MapInstanceFactory {
+    override val providerId = "here"
 
-    override val providerId: String = "here"
-
-    override suspend fun checkAvailability(context: Context): MapAvailability {
-        // HERE SDK is bundled with the APK — always available if the dependency exists
+    override suspend fun checkAvailability(ctx: Context): MapAvailability {
         return try {
-            // Verify the SDK classes are accessible
-            Class.forName("com.here.sdk.mapview.MapView")
-            MapAvailability.Available
+            Class.forName("com.here.sdk.mapview.MapView"); MapAvailability.Available
         } catch (e: ClassNotFoundException) {
-            MapAvailability.Unavailable(
-                reason = "HERE SDK classes not found",
-                resolution = "Ensure here-sdk dependency is included in the build"
-            )
+            MapAvailability.Unavailable("HERE SDK not found")
         }
     }
 
-    override fun createMapHost(context: Context): MapHost {
-        // HERE requires a ViewGroup parent to attach the MapView
-        // Return a MapHost that creates the MapView lazily
-        throw UnsupportedOperationException(
-            "HERE MapHost requires a ViewGroup parent. Use createMapHost(context, parent) instead."
-        )
-    }
+    override fun createMapHost(ctx: Context): MapHost =
+        throw UnsupportedOperationException("HERE requires ViewGroup")
 
-    /**
-     * Create a [HereMapHost] by attaching a [com.here.sdk.mapview.MapView]
-     * to the given [parent] [ViewGroup].
-     */
-    fun createMapHost(context: Context, parent: ViewGroup): MapHost {
-        return HereMapHost.create(context, parent)
-    }
+    override fun createMapHost(ctx: Context, parent: ViewGroup): MapHost =
+        HereMapHost.create(ctx, parent)
 
-    override fun createMapInstance(context: Context, options: MapOptions): MapInstance {
-        return HereMapInstance()
-    }
+    override fun createMapInstance(ctx: Context, opts: MapOptions): MapInstance = HereMapInstance()
+    override fun createUserLocationProvider(ctx: Context): UserLocationProvider =
+        HereUserLocationProvider(ctx)
 
-    override fun createUserLocationProvider(context: Context): UserLocationProvider {
-        return HereUserLocationProvider(context)
-    }
-
-    override fun createLocationDecoder(context: Context): LocationDecoder {
-        return HereLocationDecoder(context)
-    }
+    override fun createLocationDecoder(ctx: Context): LocationDecoder = HereLocationDecoder(ctx)
 }

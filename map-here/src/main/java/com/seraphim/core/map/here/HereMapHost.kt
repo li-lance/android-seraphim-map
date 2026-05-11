@@ -1,50 +1,38 @@
 package com.seraphim.core.map.here
 
 import android.content.Context
-import android.util.Log
 import android.view.ViewGroup
+import com.here.sdk.core.engine.AuthenticationMode
+import com.here.sdk.core.engine.SDKNativeEngine
+import com.here.sdk.core.engine.SDKOptions
+import com.here.sdk.core.errors.InstantiationErrorException
 import com.here.sdk.mapview.MapScheme
 import com.here.sdk.mapview.MapView
 import com.seraphim.core.map.commons.MapHost
+import com.seraphim.core.map.here.HereMapHost.Companion.initSDK
 import kotlinx.coroutines.CompletableDeferred
 
 /**
- * [MapHost] implementation wrapping a HERE SDK [MapView].
- *
- * Manages the lifecycle and provides access to the [MapView]
- * (which gives access to [com.here.sdk.mapview.MapScene] via [MapView.mapScene]).
+ * [MapHost] wrapping a HERE [MapView].
+ * 
+ * SDK initialization is handled once via [initSDK] — call before creating any MapView.
  */
-class HereMapHost(
-    private val mapView: MapView
-) : MapHost {
-
-    private val mapReady = CompletableDeferred<MapView>()
+class HereMapHost(private val mapView: MapView) : MapHost {
+    private var scene: com.here.sdk.mapview.MapScene? = null
+    private val ready = CompletableDeferred<com.here.sdk.mapview.MapScene>()
 
     init {
         mapView.onCreate(null)
-        mapView.onResume()
-        mapView.mapScene.loadScene(MapScheme.NORMAL_DAY) { errorCode ->
-            if (errorCode == null) {
-                mapReady.complete(mapView)
-            } else {
-                Log.e(TAG, "Failed to load map scene: $errorCode")
-                mapReady.completeExceptionally(
-                    RuntimeException("Failed to load HERE map scene: $errorCode")
-                )
-            }
+        mapView.setOnReadyListener {
+            scene = mapView.mapScene
+            ready.complete(mapView.mapScene)
+            mapView.mapScene.loadScene(MapScheme.NORMAL_DAY, null)
         }
     }
 
-    override suspend fun awaitNativeMap(): Any = mapReady.await()
-
-    override fun updatePadding(left: Int, top: Int, right: Int, bottom: Int) {
-        Log.d(TAG, "updatePadding: $left, $top, $right, $bottom")
-    }
-
-    override fun onStart() {
-        Log.d(TAG, "onStart")
-    }
-
+    override suspend fun awaitNativeMap(): Any = ready.await()
+    override fun updatePadding(l: Int, t: Int, r: Int, b: Int) {}
+    override fun onStart() {}
     override fun onResume() {
         mapView.onResume()
     }
@@ -53,25 +41,38 @@ class HereMapHost(
         mapView.onPause()
     }
 
-    override fun onStop() {
-        Log.d(TAG, "onStop")
-    }
-
+    override fun onStop() {}
     override fun onDestroy() {
-        mapView.onDestroy()
+        mapView.onDestroy(); scene = null
     }
 
-    override fun onLowMemory() {
-        Log.d(TAG, "onLowMemory")
-    }
+    override fun onLowMemory() {}
 
     companion object {
-        private const val TAG = "HereMapHost"
+        private var sdkInitialized = false
 
-        fun create(context: Context, parent: ViewGroup): HereMapHost {
-            val mapView = MapView(context)
-            parent.addView(mapView)
-            return HereMapHost(mapView)
+        /** Initialize HERE SDK once per process. Call from Application.onCreate. */
+        @Synchronized
+        fun initSDK(context: Context, accessKeyId: String, accessKeySecret: String) {
+            if (sdkInitialized) return
+            val auth = AuthenticationMode.withKeySecret(accessKeyId, accessKeySecret)
+            try {
+                SDKNativeEngine.makeSharedInstance(context, SDKOptions(auth))
+                sdkInitialized = true
+            } catch (e: InstantiationErrorException) {
+                throw RuntimeException("HERE SDK init failed: ${e.error.name}", e)
+            }
+        }
+
+        fun create(ctx: Context, parent: ViewGroup): HereMapHost {
+            val mv = MapView(ctx).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+            parent.addView(mv)
+            return HereMapHost(mv)
         }
     }
 }

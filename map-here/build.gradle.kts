@@ -7,14 +7,11 @@ android {
 }
 dependencies {
     api(project(":core:map:commons"))
-    // HERE SDK requires authentication. See docs for setup.
-    // 1. Register at https://platform.here.com
-    // 2. Add credentials to ~/.gradle/gradle.properties:
-    //    HERE_ACCESS_KEY_ID=your_key_id
-    //    HERE_ACCESS_KEY_SECRET=your_key_secret
-    // 3. Uncomment the implementation line below and switch to implementation
-    compileOnly(libs.here.sdk)
-    // implementation(libs.here.sdk)
+    implementation(libs.androidx.annotation.jvm)
+    // HERE SDK 4.25.5 — local AAR (61MB, exceeds GitHub Packages stability limit)
+    // Copy heresdk-explore-android-4.25.5.0.274356.aar to libs/
+    // Or download from GitHub Release: https://github.com/li-lance/android-seraphim-map/releases
+    compileOnly(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 }

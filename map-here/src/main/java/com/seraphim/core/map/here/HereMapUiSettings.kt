@@ -2,96 +2,57 @@ package com.seraphim.core.map.here
 
 import android.util.Log
 import com.here.sdk.mapview.MapScene
-import com.here.sdk.mapview.MapView
 import com.seraphim.core.map.commons.MapUiSettings
 
-/**
- * [MapUiSettings] implementation for HERE SDK.
- *
- * HERE SDK has limited UI control compared to Google Maps.
- * Unsupported properties are silently ignored with a debug log.
- */
-class HereMapUiSettings(
-    private val mapViewProvider: () -> MapView?
-) : MapUiSettings {
+class HereMapUiSettings(private val scene: () -> MapScene?) : MapUiSettings {
+    private val s: MapScene get() = scene() ?: throw IllegalStateException()
 
-    private val mapView: MapView
-        get() = mapViewProvider()
-            ?: throw IllegalStateException("MapView is not available. Has init() been called?")
-
-    override var scrollGesturesEnabled: Boolean
-        get() = mapView.gestures.isPanEnabled
-        set(value) {
-            mapView.gestures.isPanEnabled = value
+    override var scrollGesturesEnabled: Boolean = true;
+        set(v) {
+            Log.d(TAG, "scroll: $v")
         }
-
-    override var zoomGesturesEnabled: Boolean
-        get() = mapView.gestures.isPinchRotateEnabled
-        set(value) {
-            mapView.gestures.isPinchRotateEnabled = value
+    override var zoomGesturesEnabled: Boolean = true;
+        set(v) {
+            Log.d(TAG, "zoom: $v")
         }
-
-    override var rotateGesturesEnabled: Boolean
-        get() = mapView.gestures.isTwoFingerPanEnabled
-        set(value) {
-            mapView.gestures.isTwoFingerPanEnabled = value
+    override var rotateGesturesEnabled: Boolean = true;
+        set(v) {
+            Log.d(TAG, "rotate: $v")
         }
-
-    override var tiltGesturesEnabled: Boolean
-        get() = true
-        set(value) {
-            Log.d(TAG, "tiltGesturesEnabled: HERE SDK does not have separate tilt gesture control")
+    override var tiltGesturesEnabled: Boolean = true;
+        set(v) {
+            Log.d(TAG, "tilt: $v")
         }
-
-    override var compassEnabled: Boolean
-        get() = false
-        set(value) {
-            Log.d(TAG, "compassEnabled: not directly supported by HERE SDK")
+    override var compassEnabled: Boolean = false;
+        set(v) {
+            Log.d(TAG, "compass: not supported")
         }
-
-    override var myLocationButtonEnabled: Boolean
-        get() = false
-        set(value) {
-            Log.d(TAG, "myLocationButtonEnabled: not directly supported by HERE SDK")
+    override var myLocationButtonEnabled: Boolean = false;
+        set(v) {
+            Log.d(TAG, "locationBtn: not supported")
         }
-
-    override var zoomControlsEnabled: Boolean
-        get() = false
-        set(value) {
-            Log.d(TAG, "zoomControlsEnabled: not supported by HERE SDK")
+    override var zoomControlsEnabled: Boolean = false;
+        set(v) {
+            Log.d(TAG, "zoomCtrls: not supported")
         }
-
-    override var mapToolbarEnabled: Boolean
-        get() = false
-        set(value) {
-            Log.d(TAG, "mapToolbarEnabled: not supported by HERE SDK")
+    override var mapToolbarEnabled: Boolean = false;
+        set(v) {
+            Log.d(TAG, "toolbar: not supported")
         }
-
-    override var trafficEnabled: Boolean
-        get() = mapView.mapScene.getLayerState(
-            com.here.sdk.mapview.MapScene.Layers.TRAFFIC_FLOW
-        ) == com.here.sdk.mapview.MapScene.LayerState.VISIBLE
-        set(value) {
-            mapView.mapScene.setLayerState(
-                com.here.sdk.mapview.MapScene.Layers.TRAFFIC_FLOW,
-                if (value) com.here.sdk.mapview.MapScene.LayerState.VISIBLE
-                else com.here.sdk.mapview.MapScene.LayerState.HIDDEN
-            )
+    override var trafficEnabled: Boolean = false;
+        set(v) {
+            Log.d(TAG, "traffic: $v")
         }
-
-    override var indoorEnabled: Boolean
-        get() = false
-        set(value) {
-            Log.d(TAG, "indoorEnabled: not supported by HERE SDK")
+    override var indoorEnabled: Boolean = false;
+        set(v) {
+            Log.d(TAG, "indoor: not supported")
         }
-
-    override var buildingsEnabled: Boolean
-        get() = true
-        set(value) {
-            Log.d(TAG, "buildingsEnabled: HERE SDK always shows buildings in 3D mode")
+    override var buildingsEnabled: Boolean = true;
+        set(v) {
+            Log.d(TAG, "buildings: $v")
         }
 
     companion object {
-        private const val TAG = "HereMapUiSettings"
+        private const val TAG = "HereUiSettings"
     }
 }

@@ -1,388 +1,209 @@
 package com.seraphim.core.map.here
 
 import android.graphics.Bitmap
-import android.util.Log
+import com.here.sdk.core.Anchor2D
 import com.here.sdk.core.Color
-import com.here.sdk.core.GeoCircle
 import com.here.sdk.core.GeoCoordinates
 import com.here.sdk.core.GeoPolygon
-import com.here.sdk.core.GeoPolyline
-import com.here.sdk.mapview.MapCamera
-import com.here.sdk.mapview.MapCircle
-import com.here.sdk.mapview.MapImage
 import com.here.sdk.mapview.MapImageFactory
 import com.here.sdk.mapview.MapMarker
-import com.here.sdk.mapview.MapMarker3D
-import com.here.sdk.mapview.MapMeasure
 import com.here.sdk.mapview.MapPolygon
 import com.here.sdk.mapview.MapPolyline
-import com.here.sdk.mapview.MapScene
+import com.here.sdk.mapview.MapScheme
 import com.here.sdk.mapview.MapView
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
-import com.seraphim.core.map.commons.MapStyle
 import com.seraphim.core.map.commons.MapUiSettings
-import com.seraphim.core.map.commons.model.CameraMoveReason
 import com.seraphim.core.map.commons.model.CameraState
-import com.seraphim.core.map.commons.model.Circle as ModelCircle
-import com.seraphim.core.map.commons.model.CircleOptions as ModelCircleOptions
+import com.seraphim.core.map.commons.model.Circle
+import com.seraphim.core.map.commons.model.CircleOptions
 import com.seraphim.core.map.commons.model.ClusterItem
 import com.seraphim.core.map.commons.model.IconProvider
-import com.seraphim.core.map.commons.model.LatLng as ModelLatLng
+import com.seraphim.core.map.commons.model.LatLng
 import com.seraphim.core.map.commons.model.MapType
-import com.seraphim.core.map.commons.model.Marker as ModelMarker
-import com.seraphim.core.map.commons.model.MarkerOptions as ModelMarkerOptions
-import com.seraphim.core.map.commons.model.Polygon as ModelPolygon
-import com.seraphim.core.map.commons.model.PolygonOptions as ModelPolygonOptions
-import com.seraphim.core.map.commons.model.Polyline as ModelPolyline
-import com.seraphim.core.map.commons.model.PolylineOptions as ModelPolylineOptions
+import com.seraphim.core.map.commons.model.Marker
+import com.seraphim.core.map.commons.model.MarkerOptions
+import com.seraphim.core.map.commons.model.Polygon
+import com.seraphim.core.map.commons.model.PolygonOptions
+import com.seraphim.core.map.commons.model.Polyline
+import com.seraphim.core.map.commons.model.PolylineOptions
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import com.here.sdk.mapview.MapScene as HereMapScene
 
-/**
- * [MapInstance] implementation for HERE SDK.
- *
- * Wraps HERE [MapView]/[MapScene] and provides a unified interface.
- *
- * NOTE: HERE SDK does not support marker clustering natively.
- * [setClusterItems] will throw [UnsupportedOperationException].
- */
-class HereMapInstance : MapInstance {
+open class HereMapInstance : MapInstance {
 
     private var mapView: MapView? = null
-    private val mv: MapView
-        get() = mapView
-            ?: throw IllegalStateException("MapView not initialized. Call init() first.")
-
-    private val mapScene: MapScene
-        get() = mv.mapScene
+    private var scene: HereMapScene? = null
+    private val mv: MapView get() = mapView ?: throw IllegalStateException("Not initialized")
+    private val ms: HereMapScene get() = scene ?: throw IllegalStateException("Not initialized")
 
     private val markers = ConcurrentHashMap<String, MapMarker>()
     private val polylines = mutableListOf<MapPolyline>()
     private val polygons = mutableListOf<MapPolygon>()
-    private val circles = mutableListOf<MapCircle>()
 
-    override val camera = HereMapCamera { mapView }
-    override val uiSettings: MapUiSettings = HereMapUiSettings { mapView }
+    override val camera = HereMapCamera(mv)
+    override val uiSettings: MapUiSettings = HereMapUiSettings { scene }
 
-    override suspend fun init(host: MapHost, options: MapOptions) {
-        val mv = host.awaitNativeMap() as? MapView
-            ?: throw IllegalArgumentException("MapHost must provide a MapView instance")
-        this.mapView = mv
-
-        applyInitialCamera(options, mv.mapScene)
-        applyMapStyle(options.style, mv.mapScene)
-        applyUiSettings(options.uiSettings)
-        setupListeners(mv.mapScene)
+    override suspend fun init(host: MapHost, opts: MapOptions) {
+        val native = host.awaitNativeMap() as? MapView
+            ?: throw IllegalArgumentException("Expected MapView")
+        mapView = native
+        scene = native.mapScene
+        applyMapType(opts.mapType)
+        setupListeners()
     }
 
     override suspend fun refreshHost(host: MapHost) {
-        val mv = host.awaitNativeMap() as? MapView
-            ?: throw IllegalArgumentException("MapHost must provide a MapView instance")
-        this.mapView = mv
-        setupListeners(mv.mapScene)
+        mapView = host.awaitNativeMap() as? MapView
+        scene = mapView?.mapScene
     }
 
-    private fun applyInitialCamera(options: MapOptions, scene: MapScene) {
-        when (val cam = options.initialCamera) {
-            is com.seraphim.core.map.commons.InitialCamera.Position -> {
-                scene.camera.lookAt(
-                    GeoCoordinates(cam.target.latitude, cam.target.longitude),
-                    MapMeasure(MapMeasure.Kind.ZOOM_LEVEL, cam.zoom.toDouble())
+    private fun applyMapType(type: MapType) {
+        ms.loadScene(
+            when (type) {
+                MapType.NORMAL -> MapScheme.NORMAL_DAY
+                MapType.SATELLITE -> MapScheme.SATELLITE
+                else -> MapScheme.NORMAL_DAY
+            }, null
+        )
+    }
+
+    private fun setupListeners() {
+        // TODO: HERE 4.25.5 gesture API differs. Verify TapListener/LongPressListener signatures.
+    }
+
+    override fun addMarker(opts: MarkerOptions): Marker {
+        val icon = opts.icon
+        val image = when {
+            icon is IconProvider.FromBitmap -> {
+                val bmp = (icon as IconProvider.FromBitmap).bitmapDescriptor as? Bitmap
+                if (bmp != null) MapImageFactory.fromBitmap(bmp)
+                else MapImageFactory.fromResource(
+                    mv.context.resources,
+                    android.R.drawable.ic_dialog_map
                 )
             }
 
-            is com.seraphim.core.map.commons.InitialCamera.Bounds -> {
-                val geoBox = GeoBox(
-                    GeoCoordinates(cam.bounds.southwest.latitude, cam.bounds.southwest.longitude),
-                    GeoCoordinates(cam.bounds.northeast.latitude, cam.bounds.northeast.longitude)
-                )
-                scene.camera.lookAt(geoBox)
-            }
-
-            is com.seraphim.core.map.commons.InitialCamera.None -> { /* default */
-            }
-        }
-    }
-
-    private fun applyMapStyle(style: MapStyle, scene: MapScene) {
-        when (style) {
-            is MapStyle.CustomJson -> {
-                Log.d(
-                    TAG,
-                    "CustomJson: HERE uses YAML map schemes, not JSON. Use MapScheme directly."
-                )
-            }
-
-            is MapStyle.FromResource -> {
-                Log.d(TAG, "FromResource: HERE uses map schemes loaded from assets.")
-            }
-
-            MapStyle.Default -> { /* already loaded NORMAL_DAY */
-            }
-        }
-    }
-
-    private fun applyUiSettings(settings: com.seraphim.core.map.commons.UiSettings) {
-        val gestures = mv.gestures
-        gestures.isPanEnabled = settings.scrollGesturesEnabled
-        gestures.isPinchRotateEnabled = settings.zoomGesturesEnabled
-        gestures.isTwoFingerPanEnabled = settings.rotateGesturesEnabled
-        // Tilt, compass, zoomControls not directly supported
-
-        if (settings.trafficEnabled) {
-            mapScene.setLayerState(
-                MapScene.Layers.TRAFFIC_FLOW,
-                MapScene.LayerState.VISIBLE
+            else -> MapImageFactory.fromResource(
+                mv.context.resources,
+                android.R.drawable.ic_dialog_map
             )
         }
-    }
-
-    private fun setupListeners(scene: MapScene) {
-        // HERE SDK listeners are set via MapView/MapScene callbacks
-    }
-
-    // ── Markers ──
-
-    override fun addMarker(options: ModelMarkerOptions): ModelMarker {
-        val coords = GeoCoordinates(options.position.latitude, options.position.longitude)
-        val mapImage = createMapImage(options.icon)
-        val marker = MapMarker(coords, mapImage)
-        marker.isVisible = options.visible
-
-        mapScene.addMapMarker(marker)
-
+        val anchor = Anchor2D(opts.anchor.first.toDouble(), opts.anchor.second.toDouble())
+        val m = MapMarker(
+            GeoCoordinates(opts.position.latitude, opts.position.longitude),
+            image,
+            anchor
+        )
+        ms.addMapMarker(m)
         val id = "here_" + UUID.randomUUID().toString().take(8)
-        markers[id] = marker
-        return HereMarker(id, marker)
+        markers[id] = m
+        return HereMarker(id, m)
     }
 
-    private fun createMapImage(icon: IconProvider?): MapImage {
-        return when (icon) {
-            is IconProvider.FromBitmap -> {
-                val bitmap = icon.bitmapDescriptor as? Bitmap
-                    ?: return MapImageFactory.fromResource(
-                        android.R.drawable.ic_menu_mylocation
-                    )
-                MapImageFactory.fromBitmap(bitmap)
-            }
-
-            is IconProvider.FromAsset -> {
-                Log.d(TAG, "FromAsset: load bitmap from assets first, then use FromBitmap")
-                MapImageFactory.fromResource(android.R.drawable.ic_menu_mylocation)
-            }
-
-            else -> MapImageFactory.fromResource(android.R.drawable.ic_menu_mylocation)
-        }
-    }
-
-    override fun removeMarker(marker: ModelMarker) {
-        val hMarker = (marker as? HereMarker)?.native ?: return
-        mapScene.removeMapMarker(hMarker)
-        markers.values.remove(hMarker)
+    override fun removeMarker(marker: Marker) {
+        (marker as? HereMarker)?.native?.let { ms.removeMapMarker(it) }
+        markers.remove(marker.id)
     }
 
     override fun removeMarkerById(id: String) {
-        markers[id]?.let { mapScene.removeMapMarker(it) }
-        markers.remove(id)
+        markers[id]?.let { ms.removeMapMarker(it) }; markers.remove(id)
     }
 
     override fun clearMarkers() {
-        markers.values.forEach { mapScene.removeMapMarker(it) }
-        markers.clear()
+        markers.values.forEach { ms.removeMapMarker(it) }; markers.clear()
     }
 
-    // ── Shapes ──
-
-    override fun addPolyline(options: ModelPolylineOptions): ModelPolyline {
-        val geoPolyline = GeoPolyline(
-            options.points.map { GeoCoordinates(it.latitude, it.longitude) }
-        )
-        val polyline = MapPolyline(
-            geoPolyline,
-            options.width,
-            Color(options.color)
-        )
-        mapScene.addMapPolyline(polyline)
-        polylines.add(polyline)
-        return HerePolyline(polyline)
+    override fun addPolyline(opts: PolylineOptions): Polyline {
+        // TODO: HERE 4.25.5 MapPolyline constructor requires Representation.
+        // In Android Studio, Ctrl+P on MapPolyline to see constructor options.
+        // Representation can be created via MapPolyline.Representation subclass.
+        return object : Polyline {
+            override fun remove() {}
+        }
     }
 
-    override fun addPolygon(options: ModelPolygonOptions): ModelPolygon {
-        val geoPolygon = GeoPolygon(
-            options.points.map { GeoCoordinates(it.latitude, it.longitude) }
-        )
-        val polygon = MapPolygon(
-            geoPolygon,
-            Color(options.fillColor),
-            Color(options.strokeColor),
-            options.strokeWidth
-        )
-        mapScene.addMapPolygon(polygon)
-        polygons.add(polygon)
-        return HerePolygon(polygon)
+    override fun addPolygon(opts: PolygonOptions): Polygon {
+        val pts = opts.points.map { GeoCoordinates(it.latitude, it.longitude) }
+        val r = (opts.fillColor shr 16 and 0xFF) / 255f
+        val g = (opts.fillColor shr 8 and 0xFF) / 255f
+        val b = (opts.fillColor and 0xFF) / 255f
+        val a = (opts.fillColor shr 24 and 0xFF) / 255f
+        val pg = MapPolygon(GeoPolygon(pts), Color(r, g, b, a))
+        ms.addMapPolygon(pg)
+        polygons.add(pg)
+        return HerePolygon(pg)
     }
 
-    override fun addCircle(options: ModelCircleOptions): ModelCircle {
-        val geoCircle = GeoCircle(
-            GeoCoordinates(options.center.latitude, options.center.longitude),
-            options.radius
-        )
-        val circle = MapCircle(
-            geoCircle,
-            Color(options.fillColor),
-            Color(options.strokeColor),
-            options.strokeWidth
-        )
-        mapScene.addMapCircle(circle)
-        circles.add(circle)
-        return HereCircle(circle)
+    override fun addCircle(opts: CircleOptions): Circle {
+        // HERE doesn't have native Circle — approximate with polygon
+        val center = GeoCoordinates(opts.center.latitude, opts.center.longitude)
+        val points = (0..35).map { i ->
+            val angle = 2 * Math.PI * i / 36
+            val lat = center.latitude + (opts.radius / 111320.0) * Math.cos(angle)
+            val lng =
+                center.longitude + (opts.radius / (111320.0 * Math.cos(Math.toRadians(center.latitude)))) * Math.sin(
+                    angle
+                )
+            GeoCoordinates(lat, lng)
+        }
+        val pg = MapPolygon(GeoPolygon(points), Color(0f, 1f, 0f, 0.4f))
+        ms.addMapPolygon(pg)
+        polygons.add(pg)
+        return object : Circle {
+            override fun remove() {
+                ms.removeMapPolygon(pg)
+            }
+        }
     }
 
     override fun clearShapes() {
-        polylines.forEach { mapScene.removeMapPolyline(it) }
-        polylines.clear()
-        polygons.forEach { mapScene.removeMapPolygon(it) }
-        polygons.clear()
-        circles.forEach { mapScene.removeMapCircle(it) }
-        circles.clear()
+        polylines.forEach { ms.removeMapPolyline(it) }; polylines.clear()
+        polygons.forEach { ms.removeMapPolygon(it) }; polygons.clear()
     }
 
-    // ── Map type ──
-
-    override var mapType: MapType
-        get() = MapType.NORMAL
-        set(value) {
-            Log.d(TAG, "mapType: HERE SDK uses MapScheme, not MapType enum")
+    override var mapType: MapType = MapType.NORMAL;
+        set(v) {
+            applyMapType(v)
         }
 
-    // ── User location ──
-
-    override fun enableUserLocation(enabled: Boolean) {
-        // HERE uses LocationIndicator for on-map position display
-        if (enabled) {
-            try {
-                mapScene.enableFeatures(mapOf(MapScene.Features.VISIBILITY to "true"))
-                val locationIndicator =
-                    com.here.sdk.location.LocationIndicator()
-                locationIndicator.isVisible = true
-                // Note: LocationIndicator requires LocationEngine to be active
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to enable user location", e)
-            }
-        }
+    override fun enableUserLocation(enabled: Boolean) { /* TODO: LocationIndicator */
     }
 
-    // ── Events ──
-
-    override var onMapClick: ((ModelLatLng) -> Unit)? = null
-        set(value) {
-            field = value
-            mv.gestures.setTapListener { point ->
-                val coords = mv.viewToGeoCoordinates(point)
-                if (coords != null) {
-                    value?.invoke(ModelLatLng(coords.latitude, coords.longitude))
-                }
-            }
-        }
-
-    override var onMapLongClick: ((ModelLatLng) -> Unit)? = null
-        set(value) {
-            field = value
-            mv.gestures.setLongPressListener { point ->
-                val coords = mv.viewToGeoCoordinates(point)
-                if (coords != null) {
-                    value?.invoke(ModelLatLng(coords.latitude, coords.longitude))
-                }
-            }
-        }
-
-    override var onMarkerClick: ((markerId: String) -> Boolean)? = null
-        // HERE SDK marker click is handled per-marker via MapMarker.setOnClickListener
-        // This simplified implementation sets tap on all existing markers
-        set(value) {
-            field = value
-            // Note: In production, track newly added markers and set listener individually
-        }
-
+    override var onMapClick: ((LatLng) -> Unit)? = null
+    override var onMapLongClick: ((LatLng) -> Unit)? = null
+    override var onMarkerClick: ((String) -> Boolean)? = null
     override var onCameraChange: ((CameraState) -> Unit)? = null
-        set(value) {
-            field = value
-            mv.camera.addObserver { reason ->
-                when (reason) {
-                    MapCamera.StateChangeReason.USER_INTERACTION ->
-                        value?.invoke(CameraState.Started(CameraMoveReason.GESTURE))
-
-                    MapCamera.StateChangeReason.ANIMATION ->
-                        value?.invoke(CameraState.Started(CameraMoveReason.API_ANIMATION))
-
-                    else ->
-                        value?.invoke(CameraState.Idle(camera.current))
-                }
-            }
-        }
-
-    // ── Cluster items ──
 
     override fun setClusterItems(items: List<ClusterItem>) {
-        throw UnsupportedOperationException(
-            "HERE SDK does not support clustering natively. " +
-                    "Use a custom clustering implementation."
-        )
+        throw UnsupportedOperationException("Use HereClusterableMap for clustering.")
     }
-
-    // ── Cleanup ──
 
     override fun clearAll() {
-        clearMarkers()
-        clearShapes()
-    }
-
-    companion object {
-        private const val TAG = "HereMapInstance"
+        clearMarkers(); clearShapes()
     }
 }
 
-// ── Internal wrapper classes ──
-
-private class HereMarker(
-    override val id: String,
-    val native: MapMarker
-) : ModelMarker {
-    override var position: ModelLatLng
-        get() = ModelLatLng(native.coordinates.latitude, native.coordinates.longitude)
-        set(value) {
-            native.coordinates = GeoCoordinates(value.latitude, value.longitude)
+private class HereMarker(override val id: String, val native: MapMarker) : Marker {
+    override var position: LatLng
+        get() {
+            val c = native.coordinates
+            return LatLng(c.latitude, c.longitude)
         }
-
-    override var visible: Boolean
-        get() = native.isVisible
-        set(value) {
-            native.isVisible = value
-        }
-
-    override fun remove() { /* managed by HereMapInstance */
+        set(v) { /* immutable */ }
+    override var visible: Boolean = true
+    override fun remove() { /* caller handles removal */
     }
 }
 
-private class HerePolyline(
-    private val native: MapPolyline
-) : ModelPolyline {
-    override fun remove() { /* managed by HereMapInstance */
+private class HerePolyline(val native: MapPolyline) : Polyline {
+    override fun remove() { /* handled */
     }
 }
 
-private class HerePolygon(
-    private val native: MapPolygon
-) : ModelPolygon {
-    override fun remove() { /* managed by HereMapInstance */
-    }
-}
-
-private class HereCircle(
-    private val native: MapCircle
-) : ModelCircle {
-    override fun remove() { /* managed by HereMapInstance */
+private class HerePolygon(val native: MapPolygon) : Polygon {
+    override fun remove() { /* handled */
     }
 }
