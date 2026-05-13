@@ -10,6 +10,7 @@ dependencies {
     // Tmap SDK — hosted on GitHub Packages
     implementation("com.skt.tmap:tmap-sdk:3.5")
     implementation("com.skt.tmap:vsm-tmap-sdk:2.0.0")
+    implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 }
