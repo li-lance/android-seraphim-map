@@ -12,33 +12,45 @@ import com.seraphim.core.map.commons.model.UserPosition
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
-class AMapUserLocationProvider(ctx: Context) : UserLocationProvider {
+class AMapUserLocationProvider(
+    ctx: Context,
+    private val config: AMapLocationConfig = AMapLocationConfig()
+) : UserLocationProvider {
 
     private val client: AMapLocationClient = AMapLocationClient(ctx)
-    private val option = AMapLocationClientOption().apply {
-        locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
-        isOnceLocation = false
-    }
+    private val option: AMapLocationClientOption
+        get() = AMapLocationClientOption().apply {
+            locationMode = when (config.locationMode) {
+                AMapLocationMode.Hight_Accuracy -> AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
+                AMapLocationMode.Battery_Saving -> AMapLocationClientOption.AMapLocationMode.Battery_Saving
+                AMapLocationMode.Device_Sensors -> AMapLocationClientOption.AMapLocationMode.Device_Sensors
+            }
+            interval = config.intervalMs.toInt().toLong()
+            isOnceLocation = config.onceLocation
+            isNeedAddress = config.needAddress
+            isLocationCacheEnable = config.cacheEnabled
+            isMockEnable = config.mockEnable
+        }
 
-    override val isLocationEnabled: Boolean = true // AMap SDK handles internally
+    override val isLocationEnabled: Boolean = true
     override var lastKnownLocation: UserPosition? = null
         private set
 
     private var listener: AMapLocationListener? = null
 
+    override suspend fun requestSingleLocation(timeoutMs: Long): LocationResult {
+        return withTimeoutOrNull(timeoutMs) {
+            locationFlow.first()
+        } ?: LocationResult.Timeout
+    }
+
     override fun requestLocationUpdates(cb: LocationCallback, intervalMs: Long) {
-        option.let {
-            it.interval = intervalMs
-            it.isOnceLocation = intervalMs == 0L  // single-shot when interval is 0
-        }
         client.setLocationOption(option)
         listener = AMapLocationListener { loc ->
-            if (loc == null) {
-                cb.onLocationResult(LocationResult.Timeout)
-                return@AMapLocationListener
-            }
-            if (loc.errorCode != 0) {
+            if (loc == null || loc.errorCode != 0) {
                 cb.onLocationResult(LocationResult.Timeout)
                 return@AMapLocationListener
             }
@@ -61,7 +73,6 @@ class AMapUserLocationProvider(ctx: Context) : UserLocationProvider {
     }
 
     override val locationFlow: Flow<LocationResult> = callbackFlow {
-        option.interval = 5000
         client.setLocationOption(option)
         client.setLocationListener { loc ->
             if (loc != null && loc.errorCode == 0) {

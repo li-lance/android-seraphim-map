@@ -14,9 +14,20 @@ import com.yandex.mapkit.location.SubscriptionSettings
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import com.yandex.mapkit.location.LocationManager as YandexLocationManager
 
-class YandexUserLocationProvider(context: Context) : UserLocationProvider {
+class YandexUserLocationProvider(
+    context: Context,
+    private val config: YandexLocationConfig = YandexLocationConfig()
+) : UserLocationProvider {
+
+    override suspend fun requestSingleLocation(timeoutMs: Long): LocationResult {
+        return withTimeoutOrNull(timeoutMs) {
+            locationFlow.first()
+        } ?: LocationResult.Timeout
+    }
 
     private val yandexLocationManager: YandexLocationManager by lazy {
         com.yandex.mapkit.MapKitFactory.getInstance().createLocationManager()
@@ -37,8 +48,7 @@ class YandexUserLocationProvider(context: Context) : UserLocationProvider {
 
     override fun requestLocationUpdates(callback: LocationCallback, intervalMs: Long) {
         val subscription = SubscriptionSettings().apply {
-            // TODO: Yandex 4.33.1 SubscriptionSettings API may differ.
-            // Adjust interval configuration as needed.
+            // TODO: apply config.useSatellite / config.autoPause if Yandex API supports
         }
         val listener = object : LocationListener {
             override fun onLocationUpdated(location: Location) {
