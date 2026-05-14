@@ -13,9 +13,12 @@ import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
+import com.seraphim.core.map.commons.search.PoiSearch
 
 class TmapMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
     override val providerId = "tmap"
+
+    private var credentials: MapCredentials = MapCredentials.None
 
     override suspend fun checkAvailability(ctx: Context): MapAvailability {
         return try {
@@ -45,17 +48,19 @@ class TmapMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
     override fun createLocationDecoder(ctx: Context): LocationDecoder =
         TmapLocationDecoder(ctx)
 
+    override fun createPoiSearch(ctx: Context): PoiSearch =
+        TmapPoiSearch(ctx)
+
     // ── MapSdkInitializer ──
 
     override fun init(app: Application, credentials: MapCredentials) {
+        this.credentials = credentials
         val key = when (credentials) {
             is MapCredentials.ApiKey -> credentials.key
             else -> {
                 Log.w("Tmap", "Tmap requires ApiKey credentials"); return
             }
         }
-        // TMapView 的 API key 在创建时传入，这里可以预存到 shared preferences
-        // 或仅做日志记录
         Log.d("Tmap", "Tmap API key configured: $key")
     }
 }

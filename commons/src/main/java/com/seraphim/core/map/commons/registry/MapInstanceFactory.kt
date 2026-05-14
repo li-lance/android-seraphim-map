@@ -7,6 +7,7 @@ import com.seraphim.core.map.commons.MapInstance
 import com.seraphim.core.map.commons.MapOptions
 import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
+import com.seraphim.core.map.commons.search.PoiSearch
 
 /**
  * Factory for creating map instances and related components for a specific provider.
@@ -52,4 +53,9 @@ interface MapInstanceFactory {
      * Create a [LocationDecoder] for this map provider.
      */
     fun createLocationDecoder(context: Context): LocationDecoder
+
+    /**
+     * Create a [PoiSearch] for this map provider.
+     */
+    fun createPoiSearch(context: Context): PoiSearch
 }

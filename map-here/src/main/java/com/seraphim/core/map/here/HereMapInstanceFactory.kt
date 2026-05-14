@@ -16,9 +16,12 @@ import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
+import com.seraphim.core.map.commons.search.PoiSearch
 
 class HereMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
     override val providerId = "here"
+
+    private var credentials: MapCredentials = MapCredentials.None
 
     override suspend fun checkAvailability(context: Context): MapAvailability {
         return try {
@@ -49,9 +52,13 @@ class HereMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
     override fun createLocationDecoder(context: Context): LocationDecoder =
         HereLocationDecoder(context)
 
+    override fun createPoiSearch(context: Context): PoiSearch =
+        HerePoiSearch(context)
+
     // ── MapSdkInitializer ──
 
     override fun init(app: Application, credentials: MapCredentials) {
+        this.credentials = credentials
         val (accessKeyId, accessKeySecret) = when (credentials) {
             is MapCredentials.HereCredentials -> Pair(
                 credentials.accessKeyId,

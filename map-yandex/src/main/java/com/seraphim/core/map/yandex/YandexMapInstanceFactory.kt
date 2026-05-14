@@ -13,11 +13,14 @@ import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
+import com.seraphim.core.map.commons.search.PoiSearch
 import com.yandex.mapkit.MapKitFactory
 
 class YandexMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
 
     override val providerId: String = "yandex"
+
+    private var credentials: MapCredentials = MapCredentials.None
 
     override suspend fun checkAvailability(context: Context): MapAvailability {
         return try {
@@ -57,9 +60,14 @@ class YandexMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
         return YandexLocationDecoder(context)
     }
 
+    override fun createPoiSearch(context: Context): PoiSearch {
+        return YandexPoiSearch(context)
+    }
+
     // ── MapSdkInitializer ──
 
     override fun init(app: Application, credentials: MapCredentials) {
+        this.credentials = credentials
         val key = when (credentials) {
             is MapCredentials.ApiKey -> credentials.key
             else -> {

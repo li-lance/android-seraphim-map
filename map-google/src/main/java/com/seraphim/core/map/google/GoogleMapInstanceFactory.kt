@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.libraries.places.api.Places
 import com.seraphim.core.map.commons.MapCredentials
 import com.seraphim.core.map.commons.MapHost
 import com.seraphim.core.map.commons.MapInstance
@@ -15,16 +16,19 @@ import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
+import com.seraphim.core.map.commons.search.PoiSearch
 
 /**
  * [MapInstanceFactory] for Google Maps.
  *
  * Checks Google Play Services availability before creating instances.
- * SDK init is a no-op (API key is configured in AndroidManifest).
+ * SDK init initializes the Places SDK with the provided API key.
  */
 class GoogleMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
 
     override val providerId: String = "google"
+
+    private var credentials: MapCredentials = MapCredentials.None
 
     override suspend fun checkAvailability(context: Context): MapAvailability {
         val api = GoogleApiAvailability.getInstance()
@@ -77,10 +81,55 @@ class GoogleMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
         return GoogleLocationDecoder(context)
     }
 
-    // ── MapSdkInitializer (no-op for Google) ──
+    override fun createPoiSearch(context: Context): PoiSearch {
+        return GooglePoiSearch(context)
+    }
+
+    // ── MapSdkInitializer ──
 
     override fun init(app: Application, credentials: MapCredentials) {
-        // Google Maps API key is configured in AndroidManifest meta-data.
-        // No runtime SDK initialization required.
+        this.credentials = credentials
+        val apiKey = when (credentials) {
+            is MapCredentials.ApiKey -> credentials.key
+            else -> null
+        }
+        if (!Places.isInitialized()) {
+            val keyToUse = if (!apiKey.isNullOrBlank()) {
+                apiKey
+            } else {
+                // Fallback: read from AndroidManifest meta-data
+                readApiKeyFromManifest(app)
+            }
+            if (!keyToUse.isNullOrBlank()) {
+                Places.initialize(app, keyToUse)
+            } else {
+                android.util.Log.w(
+                    "GoogleMapInstanceFactory",
+                    "No Places API key found. PoiSearch will fail."
+                )
+            }
+        }
+    }
+
+    private fun readApiKeyFromManifest(context: Context): String? {
+        return try {
+            val appInfo = context.packageManager.getApplicationInfo(
+                context.packageName,
+                android.content.pm.PackageManager.GET_META_DATA
+            )
+            val key = appInfo.metaData?.getString("com.google.android.geo.API_KEY")
+            android.util.Log.d(
+                "GoogleMapInstanceFactory",
+                "Read API key from manifest: ${key?.take(10)}..."
+            )
+            key
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "GoogleMapInstanceFactory",
+                "Failed to read API key from manifest",
+                e
+            )
+            null
+        }
     }
 }

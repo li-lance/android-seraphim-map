@@ -10,6 +10,7 @@ dependencies {
     api(libs.google.maps)
     api(libs.google.maps.utils)
     implementation(libs.google.location)
+    implementation(libs.google.places)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 }

@@ -15,9 +15,12 @@ import com.seraphim.core.map.commons.location.LocationDecoder
 import com.seraphim.core.map.commons.location.UserLocationProvider
 import com.seraphim.core.map.commons.registry.MapAvailability
 import com.seraphim.core.map.commons.registry.MapInstanceFactory
+import com.seraphim.core.map.commons.search.PoiSearch
 
 class AMapMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
     override val providerId = "amap"
+
+    private var credentials: MapCredentials = MapCredentials.None
 
     override suspend fun checkAvailability(context: Context): MapAvailability {
         return try {
@@ -44,9 +47,13 @@ class AMapMapInstanceFactory : MapInstanceFactory, MapSdkInitializer {
     override fun createLocationDecoder(context: Context): LocationDecoder =
         AMapLocationDecoder(context)
 
+    override fun createPoiSearch(context: Context): PoiSearch =
+        AMapPoiSearch(context)
+
     // ── MapSdkInitializer ──
 
     override fun init(app: Application, credentials: MapCredentials) {
+        this.credentials = credentials
         try {
             MapsInitializer.updatePrivacyShow(app, true, true)
             MapsInitializer.updatePrivacyAgree(app, true)
